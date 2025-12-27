@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Users, Upload } from 'lucide-react';
+import { ArrowLeft, Users, Upload, X, Eye } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -20,6 +20,7 @@ export default function RegisterPage() {
     confirmPassword: '',
   });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -33,9 +34,21 @@ export default function RegisterPage() {
       const file = e.target.files[0];
       if (file.size <= 5 * 1024 * 1024) { // 5MB limit
         setSelectedFile(file);
+        
+        // Create preview URL
+        const url = URL.createObjectURL(file);
+        setPreviewUrl(url);
       } else {
         alert('File size must be less than 5MB');
       }
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
     }
   };
 
@@ -256,34 +269,98 @@ export default function RegisterPage() {
               <h2 className="text-2xl font-bold text-red-700 mb-6 pb-3 border-b-2 border-red-200">
                 Document Upload
               </h2>
-              <div className="border-2 border-red-300 rounded-2xl p-8 text-center bg-red-50">
-                <div className="mb-4">
-                  <Upload className="w-12 h-12 text-red-600 mx-auto mb-4" strokeWidth={2} />
-                  <p className="text-gray-700 font-semibold mb-2">
-                    Upload Service Identity Card <span className="text-red-600">*</span>
-                  </p>
-                  <p className="text-gray-500 text-sm mb-4">PDF, JPG, or PNG (Max 5MB)</p>
+              
+              {!selectedFile ? (
+                <div className="border-2 border-red-300 rounded-2xl p-8 text-center bg-red-50">
+                  <div className="mb-4">
+                    <Upload className="w-12 h-12 text-red-600 mx-auto mb-4" strokeWidth={2} />
+                    <p className="text-gray-700 font-semibold mb-2">
+                      Upload Service Identity Card <span className="text-red-600">*</span>
+                    </p>
+                    <p className="text-gray-500 text-sm mb-4">PDF, JPG, or PNG (Max 5MB)</p>
+                  </div>
+                  <input
+                    type="file"
+                    id="fileUpload"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    required
+                  />
+                  <label
+                    htmlFor="fileUpload"
+                    className="inline-block bg-red-600 text-white font-semibold py-3 px-8 rounded-xl hover:bg-red-700 transition-colors duration-200 cursor-pointer"
+                  >
+                    Choose File
+                  </label>
                 </div>
-                <input
-                  type="file"
-                  id="fileUpload"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  required
-                />
-                <label
-                  htmlFor="fileUpload"
-                  className="inline-block bg-red-600 text-white font-semibold py-3 px-8 rounded-xl hover:bg-red-700 transition-colors duration-200 cursor-pointer"
-                >
-                  Choose File
-                </label>
-                {selectedFile && (
-                  <p className="mt-4 text-green-600 font-medium">
-                    ✓ {selectedFile.name} selected
-                  </p>
-                )}
-              </div>
+              ) : (
+                <div className="border-2 border-green-300 rounded-2xl p-6 bg-green-50">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                        <Eye className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-green-800 font-semibold">File Uploaded Successfully</p>
+                        <p className="text-gray-600 text-sm">{selectedFile.name}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveFile}
+                      className="text-red-600 hover:bg-red-100 p-2 rounded-lg transition-colors duration-200"
+                      title="Remove file"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  {/* Preview Section */}
+                  <div className="mt-4 border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
+                    <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
+                      <p className="text-sm font-medium text-gray-700">Document Preview</p>
+                    </div>
+                    <div className="p-4">
+                      {previewUrl && selectedFile.type.startsWith('image/') ? (
+                        <img 
+                          src={previewUrl} 
+                          alt="Document preview" 
+                          className="max-w-full h-auto max-h-96 mx-auto rounded-lg shadow-md"
+                        />
+                      ) : selectedFile.type === 'application/pdf' ? (
+                        <div className="text-center py-8">
+                          <div className="w-16 h-16 bg-red-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <p className="text-gray-700 font-medium">PDF Document</p>
+                          <p className="text-gray-500 text-sm mt-1">{selectedFile.name}</p>
+                          <p className="text-gray-400 text-xs mt-2">Preview not available for PDF files</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                  
+                  {/* Change File Button */}
+                  <div className="mt-4 text-center">
+                    <input
+                      type="file"
+                      id="fileUploadReplace"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <label
+                      htmlFor="fileUploadReplace"
+                      className="inline-block bg-white border-2 border-red-600 text-red-600 font-semibold py-2 px-6 rounded-xl hover:bg-red-50 transition-colors duration-200 cursor-pointer"
+                    >
+                      Change File
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Submit and Login Buttons */}
