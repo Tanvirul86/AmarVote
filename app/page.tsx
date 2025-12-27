@@ -10,7 +10,7 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-6 pt-20 pb-12 text-center">
         {/* Logo and Title */}
         <div className="flex items-center justify-center mb-6">
-          <div className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center mr-4 shadow-lg">
+          <div className="w-20 h-20 bg-emerald-500 rounded-3xl flex items-center justify-center mr-4 shadow-lg animate-float">
             <Shield className="w-11 h-11 text-white" strokeWidth={2.5} />
           </div>
           <h1 className="text-6xl font-bold text-white">
@@ -35,7 +35,7 @@ export default function Home() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           
           {/* BEC Admin Card - Green */}
-          <div className="bg-gradient-to-br from-teal-600/90 to-emerald-700/90 rounded-3xl shadow-2xl p-10 text-center">
+          <div className="bg-gradient-to-br from-teal-600/90 to-emerald-700/90 rounded-3xl shadow-2xl p-10 text-center animate-card-1 hover-lift">
             <div className="w-20 h-20 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg">
               <Shield className="w-10 h-10 text-white" strokeWidth={2.5} />
             </div>
@@ -57,7 +57,7 @@ export default function Home() {
           </div>
 
           {/* Presiding Officer Card - Blue */}
-          <div className="bg-gradient-to-br from-indigo-600/90 to-blue-700/90 rounded-3xl shadow-2xl p-10 text-center">
+          <div className="bg-gradient-to-br from-indigo-600/90 to-blue-700/90 rounded-3xl shadow-2xl p-10 text-center animate-card-2 hover-lift">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg">
               <UserCheck className="w-10 h-10 text-white" strokeWidth={2.5} />
             </div>
@@ -86,7 +86,7 @@ export default function Home() {
           </div>
 
           {/* Law Enforcement Card - Red */}
-          <div className="bg-gradient-to-br from-rose-600/90 to-pink-700/90 rounded-3xl shadow-2xl p-10 text-center">
+          <div className="bg-gradient-to-br from-rose-600/90 to-pink-700/90 rounded-3xl shadow-2xl p-10 text-center animate-card-3 hover-lift">
             <div className="w-20 h-20 bg-gradient-to-br from-pink-500 to-rose-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg">
               <Users className="w-10 h-10 text-white" strokeWidth={2.5} />
             </div>
@@ -122,7 +122,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6">
           
           {/* Incident Tracking System */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20 items-center animate-fade-in">
             <div>
               <div className="w-14 h-14 rounded-xl bg-blue-500 flex items-center justify-center mb-6">
                 <FileText className="w-7 h-7 text-white" strokeWidth={2} />
@@ -136,7 +136,7 @@ export default function Home() {
                 alongside real-time visualization.
               </p>
             </div>
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-xl overflow-hidden">
+            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-xl overflow-hidden animate-slide-right image-zoom">
               <Image
                 src="/images/incident tracking.webp"
                 alt="Incident Tracking System"
@@ -148,8 +148,8 @@ export default function Home() {
           </div>
 
           {/* Automated Alert System */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20 items-center">
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-xl overflow-hidden order-2 lg:order-1">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20 items-center animate-fade-in">
+            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-xl overflow-hidden order-2 lg:order-1 animate-slide-left image-zoom">
               <Image
                 src="/images/automated alert system.jpg"
                 alt="Automated Alert System"
@@ -210,7 +210,7 @@ export default function Home() {
           </div>
 
           {/* Vote Submission with Locking */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-12 animate-fade-in">
             <div>
               <div className="w-14 h-14 rounded-xl bg-cyan-500 flex items-center justify-center mb-6">
                 <Clock className="w-7 h-7 text-white" strokeWidth={2} />
@@ -224,7 +224,7 @@ export default function Home() {
                 ensuring tamper-proof recording.
               </p>
             </div>
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-xl overflow-hidden">
+            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-xl overflow-hidden animate-slide-right image-zoom">
               <Image
                 src="/images/vote submission with locking.jpg"
                 alt="Vote Submission with Locking"

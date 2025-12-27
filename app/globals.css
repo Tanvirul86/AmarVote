@@ -17,3 +17,107 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
+
+@layer utilities {
+  /* Floating animation for shield logo */
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* Fade in on scroll */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fadeInUp 0.8s ease-out forwards;
+  }
+
+  /* Staggered entrance for cards */
+  .animate-card-1 {
+    animation: fadeInUp 0.6s ease-out 0.1s forwards;
+    opacity: 0;
+  }
+
+  .animate-card-2 {
+    animation: fadeInUp 0.6s ease-out 0.3s forwards;
+    opacity: 0;
+  }
+
+  .animate-card-3 {
+    animation: fadeInUp 0.6s ease-out 0.5s forwards;
+    opacity: 0;
+  }
+
+  /* Enhanced hover lift */
+  .hover-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Slide in from left with fade */
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-50px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-left {
+    animation: slideInLeft 0.8s ease-out forwards;
+  }
+
+  /* Slide in from right with fade */
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(50px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-right {
+    animation: slideInRight 0.8s ease-out forwards;
+  }
+
+  /* Image zoom on hover */
+  .image-zoom {
+    overflow: hidden;
+    transition: all 0.4s ease;
+  }
+
+  .image-zoom img {
+    transition: transform 0.4s ease;
+  }
+
+  .image-zoom:hover img {
+    transform: scale(1.08);
+  }
+}
