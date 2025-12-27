@@ -5,7 +5,7 @@ import { Shield, Users, UserCheck, FileText, AlertTriangle, Clock, Lock, User } 
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-purple-50 to-blue-200">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100">
       {/* Header Section */}
       <div className="max-w-7xl mx-auto px-6 pt-20 pb-12 text-center">
         {/* Logo and Title */}
@@ -136,26 +136,26 @@ export default function Home() {
                 alongside real-time visualization.
               </p>
             </div>
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-8 shadow-xl min-h-[280px] flex items-center justify-center">
+            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-xl overflow-hidden">
               <Image
-                src="/images/incident tracking system and interactive map.png"
+                src="/images/incident tracking.webp"
                 alt="Incident Tracking System"
-                width={400}
-                height={240}
-                className="rounded-lg object-contain"
+                width={600}
+                height={400}
+                className="w-full h-full object-cover"
               />
             </div>
           </div>
 
           {/* Automated Alert System */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-20 items-center">
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-8 shadow-xl min-h-[280px] flex items-center justify-center order-2 lg:order-1">
+            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-xl overflow-hidden order-2 lg:order-1">
               <Image
                 src="/images/automated alert system.jpg"
                 alt="Automated Alert System"
-                width={400}
-                height={240}
-                className="rounded-lg object-contain"
+                width={600}
+                height={400}
+                className="w-full h-full object-cover"
               />
             </div>
             <div className="order-1 lg:order-2">
@@ -224,13 +224,13 @@ export default function Home() {
                 ensuring tamper-proof recording.
               </p>
             </div>
-            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl p-8 shadow-xl min-h-[280px] flex items-center justify-center">
+            <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl shadow-xl overflow-hidden">
               <Image
                 src="/images/vote submission with locking.jpg"
                 alt="Vote Submission with Locking"
-                width={400}
-                height={240}
-                className="rounded-lg object-contain"
+                width={600}
+                height={400}
+                className="w-full h-full object-cover"
               />
             </div>
           </div>
