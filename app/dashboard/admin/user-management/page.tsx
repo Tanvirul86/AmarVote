@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ShieldIcon from '@/components/ShieldIcon';
 import UserProfileControls from '@/components/UserProfileControls';
 import SlidingSidebar from '@/components/SlidingSidebar';
 import NotificationBell from '@/components/NotificationBell';
+import { getUsers, saveUsers, addUser, updateUserStatus, deleteUser, SystemUser } from '@/data/mockData';
 import { 
   LogOut, 
   FileText, 
@@ -29,7 +30,8 @@ import {
   XCircle,
   Shield,
   Check,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft
 } from 'lucide-react';
 
 interface User {
@@ -41,6 +43,8 @@ interface User {
   location: string;
   joinedDate: string;
   lastActive: string;
+  username?: string;
+  password?: string;
 }
 
 export default function UserManagementPage() {
@@ -52,6 +56,8 @@ export default function UserManagementPage() {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const usersPerPage = 10;
 
   // New user form state
   const [newUser, setNewUser] = useState({
@@ -59,7 +65,8 @@ export default function UserManagementPage() {
     email: '',
     role: 'Officer' as 'Admin' | 'Officer' | 'Police',
     location: '',
-    password: ''
+    password: '',
+    username: ''
   });
 
   const handleLogout = () => {
@@ -68,89 +75,24 @@ export default function UserManagementPage() {
     }
   };
 
-  // Mock users data
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: 'USR-001',
-      name: 'Lt Tanvir Ahmed',
-      email: 'tanvir.ahmed@bec.gov.bd',
-      role: 'Admin',
-      status: 'Active',
-      location: 'Dhaka',
-      joinedDate: '2024-01-15',
-      lastActive: '2 hours ago'
-    },
-    {
-      id: 'USR-002',
-      name: 'Md. Kamal Hossain',
-      email: 'kamal.hossain@bec.gov.bd',
-      role: 'Officer',
-      status: 'Active',
-      location: 'Chattogram',
-      joinedDate: '2024-02-20',
-      lastActive: '1 day ago'
-    },
-    {
-      id: 'USR-003',
-      name: 'Inspector Rahim Khan',
-      email: 'rahim.khan@police.gov.bd',
-      role: 'Police',
-      status: 'Active',
-      location: 'Sylhet',
-      joinedDate: '2024-03-10',
-      lastActive: '3 hours ago'
-    },
-    {
-      id: 'USR-004',
-      name: 'Ms. Fatima Begum',
-      email: 'fatima.begum@bec.gov.bd',
-      role: 'Officer',
-      status: 'Pending',
-      location: 'Rajshahi',
-      joinedDate: '2024-11-25',
-      lastActive: 'Never'
-    },
-    {
-      id: 'USR-005',
-      name: 'ASP Mohammad Ali',
-      email: 'mohammad.ali@police.gov.bd',
-      role: 'Police',
-      status: 'Inactive',
-      location: 'Khulna',
-      joinedDate: '2024-01-30',
-      lastActive: '2 weeks ago'
-    },
-    {
-      id: 'USR-006',
-      name: 'Dr. Shamima Rahman',
-      email: 'shamima.rahman@bec.gov.bd',
-      role: 'Admin',
-      status: 'Active',
-      location: 'Dhaka',
-      joinedDate: '2023-12-01',
-      lastActive: '30 mins ago'
-    },
-    {
-      id: 'USR-007',
-      name: 'Nazrul Islam',
-      email: 'nazrul.islam@bec.gov.bd',
-      role: 'Officer',
-      status: 'Active',
-      location: 'Barisal',
-      joinedDate: '2024-04-15',
-      lastActive: '5 hours ago'
-    },
-    {
-      id: 'USR-008',
-      name: 'SI Jasim Uddin',
-      email: 'jasim.uddin@police.gov.bd',
-      role: 'Police',
-      status: 'Pending',
-      location: 'Rangpur',
-      joinedDate: '2024-12-01',
-      lastActive: 'Never'
-    }
-  ]);
+  // Load users from shared store
+  const [users, setUsers] = useState<User[]>([]);
+  
+  useEffect(() => {
+    const loadedUsers = getUsers();
+    setUsers(loadedUsers.map(u => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      status: u.status,
+      location: u.location,
+      joinedDate: u.joinedDate,
+      lastActive: u.lastActive,
+      username: u.username,
+      password: u.password
+    })));
+  }, []);
 
   // Filter users based on search and filters
   const filteredUsers = users.filter(user => {
@@ -161,6 +103,11 @@ export default function UserManagementPage() {
     const matchesStatus = filterStatus === 'All' || user.status === filterStatus;
     return matchesSearch && matchesRole && matchesStatus;
   });
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterRole, filterStatus]);
 
   const getRoleColor = (role: string) => {
     switch(role) {
@@ -182,13 +129,22 @@ export default function UserManagementPage() {
 
   // Add new user
   const handleAddUser = () => {
-    if (!newUser.name || !newUser.email || !newUser.location || !newUser.password) {
+    if (!newUser.name || !newUser.email || !newUser.location || !newUser.password || !newUser.username) {
       alert('Please fill all fields');
       return;
     }
 
-    const newUserData: User = {
-      id: `USR-${String(users.length + 1).padStart(3, '0')}`,
+    // Check if username already exists
+    const existingUsers = getUsers();
+    if (existingUsers.some(u => u.username.toLowerCase() === newUser.username.toLowerCase())) {
+      alert('Username already exists. Please choose a different username.');
+      return;
+    }
+
+    // Add user to shared store
+    const createdUser = addUser({
+      username: newUser.username,
+      password: newUser.password,
       name: newUser.name,
       email: newUser.email,
       role: newUser.role,
@@ -196,25 +152,46 @@ export default function UserManagementPage() {
       location: newUser.location,
       joinedDate: new Date().toISOString().split('T')[0],
       lastActive: 'Just now'
-    };
+    });
 
-    setUsers([...users, newUserData]);
+    // Update local state
+    setUsers([...users, {
+      id: createdUser.id,
+      name: createdUser.name,
+      email: createdUser.email,
+      role: createdUser.role,
+      status: createdUser.status,
+      location: createdUser.location,
+      joinedDate: createdUser.joinedDate,
+      lastActive: createdUser.lastActive,
+      username: createdUser.username,
+      password: createdUser.password
+    }]);
+
     setShowAddUserModal(false);
-    setNewUser({ name: '', email: '', role: 'Officer', location: '', password: '' });
-    alert('User added successfully!');
+    setNewUser({ name: '', email: '', role: 'Officer', location: '', password: '', username: '' });
+    alert(`User added successfully! Username: ${newUser.username}`);
   };
 
   // Approve user
   const handleApproveUser = (userId: string) => {
+    // Update in shared store
+    updateUserStatus(userId, 'Active');
+    
+    // Update local state
     setUsers(users.map(user => 
-      user.id === userId ? { ...user, status: 'Active' as const } : user
+      user.id === userId ? { ...user, status: 'Active' as const, lastActive: 'Just now' } : user
     ));
-    alert('User approved successfully!');
+    alert('User approved successfully! They can now log in.');
   };
 
   // Reject user
   const handleRejectUser = (userId: string) => {
     if (confirm('Are you sure you want to reject this user? This will delete their account.')) {
+      // Delete from shared store
+      deleteUser(userId);
+      
+      // Update local state
       setUsers(users.filter(user => user.id !== userId));
       alert('User rejected and removed from the system.');
     }
@@ -228,6 +205,10 @@ export default function UserManagementPage() {
 
   const confirmDelete = () => {
     if (userToDelete) {
+      // Delete from shared store
+      deleteUser(userToDelete);
+      
+      // Update local state
       setUsers(users.filter(user => user.id !== userToDelete));
       setShowDeleteModal(false);
       setUserToDelete(null);
@@ -238,35 +219,29 @@ export default function UserManagementPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <SlidingSidebar isOpen={sidebarOpen} role="admin" />
+      <SlidingSidebar />
 
       {/* Main Content */}
       <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
-        {/* Top Bar */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        {/* Hero Header - Green */}
+        <header className="bg-green-600 text-white px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                onClick={() => router.back()}
+                className="p-2 hover:bg-green-700 rounded transition-colors"
               >
-                {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                <ChevronLeft className="w-5 h-5" />
               </button>
-              <div className="flex items-center gap-3">
-                <ShieldIcon className="w-8 h-8" color="#10b981" />
-                <div>
-                  <h1 className="text-xl font-bold text-gray-800">User Management</h1>
-                  <p className="text-sm text-gray-500">Manage system users and permissions</p>
-                </div>
-              </div>
+              <h1 className="text-xl font-bold">User Management</h1>
             </div>
 
             <div className="flex items-center gap-4">
               <NotificationBell />
-              <UserProfileControls onLogout={handleLogout} userName="Admin" />
+              <UserProfileControls role="admin" />
             </div>
           </div>
-        </div>
+        </header>
 
         {/* Content */}
         <div className="p-6">
@@ -413,7 +388,7 @@ export default function UserManagementPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
+                  {filteredUsers.slice((currentPage - 1) * usersPerPage, currentPage * usersPerPage).map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -504,25 +479,46 @@ export default function UserManagementPage() {
           </div>
 
           {/* Pagination */}
-          <div className="mt-6 flex items-center justify-between">
-            <p className="text-sm text-gray-600">
-              Showing <span className="font-medium">{filteredUsers.length}</span> of <span className="font-medium">{users.length}</span> users
-            </p>
-            <div className="flex gap-2">
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
-                Previous
-              </button>
-              <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium">
-                1
-              </button>
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
-                2
-              </button>
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
-                Next
-              </button>
-            </div>
-          </div>
+          {(() => {
+            const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+            const startIndex = (currentPage - 1) * usersPerPage;
+            const endIndex = Math.min(startIndex + usersPerPage, filteredUsers.length);
+            
+            return (
+              <div className="mt-6 flex items-center justify-between">
+                <p className="text-sm text-gray-600">
+                  Showing <span className="font-medium">{filteredUsers.length > 0 ? startIndex + 1 : 0}</span> to <span className="font-medium">{endIndex}</span> of <span className="font-medium">{filteredUsers.length}</span> users
+                </p>
+                {totalPages > 1 && (
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className={`px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-colors ${currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                    >
+                      Previous
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button 
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === page ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'border border-gray-300 hover:bg-gray-50'}`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button 
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className={`px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -548,6 +544,17 @@ export default function UserManagementPage() {
                   value={newUser.name}
                   onChange={(e) => setNewUser({...newUser, name: e.target.value})}
                   placeholder="Enter full name"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Username (for login)</label>
+                <input
+                  type="text"
+                  value={newUser.username}
+                  onChange={(e) => setNewUser({...newUser, username: e.target.value})}
+                  placeholder="Enter username"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
               </div>
@@ -588,12 +595,12 @@ export default function UserManagementPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Initial Password</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
                 <input
                   type="password"
                   value={newUser.password}
                   onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-                  placeholder="Enter initial password"
+                  placeholder="Enter password"
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
               </div>
