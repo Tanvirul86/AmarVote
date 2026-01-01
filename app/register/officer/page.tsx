@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, X, UserPlus } from 'lucide-react';
+import { registerPresidingOfficerUser, getUsers } from '@/data/mockData';
 
 // Bangladesh Divisions and Districts
 const divisionDistrictMap: Record<string, string[]> = {
@@ -107,13 +108,36 @@ export default function OfficerRegisterPage() {
     
     if (!validateForm()) return;
     
+    // Check if username already exists
+    const existingUsers = getUsers();
+    if (existingUsers.some(u => u.username.toLowerCase() === formData.username.toLowerCase())) {
+      setErrors(prev => ({ ...prev, username: 'Username already exists. Please choose a different username.' }));
+      return;
+    }
+
+    // Check if email already exists
+    if (existingUsers.some(u => u.email.toLowerCase() === formData.email.toLowerCase())) {
+      setErrors(prev => ({ ...prev, email: 'Email already registered. Please use a different email.' }));
+      return;
+    }
+    
     setIsSubmitting(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitting(false);
-      router.push('/register/officer/success');
-    }, 1500);
+    // Register the user with Pending status
+    registerPresidingOfficerUser({
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      employeeId: formData.nid,
+      pollingStation: formData.pollingCenterName,
+      district: formData.district,
+      designation: 'Presiding Officer',
+      username: formData.username,
+      password: formData.password
+    });
+
+    setIsSubmitting(false);
+    router.push('/register/officer/success');
   };
 
   return (
