@@ -1,3 +1,290 @@
+// ====== USER MANAGEMENT SYSTEM ======
+export interface SystemUser {
+  id: string;
+  username: string;
+  password: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: 'Admin' | 'Officer' | 'Police';
+  status: 'Active' | 'Inactive' | 'Pending';
+  location: string;
+  joinedDate: string;
+  lastActive: string;
+  serviceId?: string;
+  rank?: string;
+}
+
+// Default users (hardcoded for demo)
+const defaultUsers: SystemUser[] = [
+  {
+    id: 'USR-001',
+    username: 'admin',
+    password: 'admin123',
+    name: 'Lt Tanvir Ahmed',
+    email: 'tanvir.ahmed@bec.gov.bd',
+    role: 'Admin',
+    status: 'Active',
+    location: 'Dhaka',
+    joinedDate: '2024-01-15',
+    lastActive: '2 hours ago'
+  },
+  {
+    id: 'USR-002',
+    username: 'officer',
+    password: 'officer123',
+    name: 'Md. Kamal Hossain',
+    email: 'kamal.hossain@bec.gov.bd',
+    role: 'Officer',
+    status: 'Active',
+    location: 'Chattogram',
+    joinedDate: '2024-02-20',
+    lastActive: '1 day ago'
+  },
+  {
+    id: 'USR-003',
+    username: 'rahman',
+    password: 'rahman123',
+    name: 'Inspector Rahim Khan',
+    email: 'rahim.khan@police.gov.bd',
+    role: 'Police',
+    status: 'Active',
+    location: 'Sylhet',
+    joinedDate: '2024-03-10',
+    lastActive: '3 hours ago'
+  },
+  {
+    id: 'USR-004',
+    username: 'fatima',
+    password: 'fatima123',
+    name: 'Ms. Fatima Begum',
+    email: 'fatima.begum@bec.gov.bd',
+    role: 'Officer',
+    status: 'Pending',
+    location: 'Rajshahi',
+    joinedDate: '2024-11-25',
+    lastActive: 'Never'
+  },
+  {
+    id: 'USR-005',
+    username: 'ali',
+    password: 'ali123',
+    name: 'ASP Mohammad Ali',
+    email: 'mohammad.ali@police.gov.bd',
+    role: 'Police',
+    status: 'Inactive',
+    location: 'Khulna',
+    joinedDate: '2024-01-30',
+    lastActive: '2 weeks ago'
+  },
+  {
+    id: 'USR-006',
+    username: 'shamima',
+    password: 'shamima123',
+    name: 'Dr. Shamima Rahman',
+    email: 'shamima.rahman@bec.gov.bd',
+    role: 'Admin',
+    status: 'Active',
+    location: 'Dhaka',
+    joinedDate: '2023-12-01',
+    lastActive: '30 mins ago'
+  },
+  {
+    id: 'USR-007',
+    username: 'nazrul',
+    password: 'nazrul123',
+    name: 'Nazrul Islam',
+    email: 'nazrul.islam@bec.gov.bd',
+    role: 'Officer',
+    status: 'Active',
+    location: 'Barisal',
+    joinedDate: '2024-04-15',
+    lastActive: '5 hours ago'
+  },
+  {
+    id: 'USR-008',
+    username: 'jasim',
+    password: 'jasim123',
+    name: 'SI Jasim Uddin',
+    email: 'jasim.uddin@police.gov.bd',
+    role: 'Police',
+    status: 'Pending',
+    location: 'Rangpur',
+    joinedDate: '2024-12-01',
+    lastActive: 'Never'
+  }
+];
+
+const USERS_STORAGE_KEY = 'amarvote_users';
+const USERS_VERSION_KEY = 'amarvote_users_version';
+const CURRENT_VERSION = '2'; // Increment this when default users change
+
+// Get users from localStorage or return defaults
+export const getUsers = (): SystemUser[] => {
+  if (typeof window === 'undefined') return defaultUsers;
+  
+  try {
+    const storedVersion = localStorage.getItem(USERS_VERSION_KEY);
+    const stored = localStorage.getItem(USERS_STORAGE_KEY);
+    
+    // If version matches and we have stored data, use it
+    if (storedVersion === CURRENT_VERSION && stored) {
+      return JSON.parse(stored);
+    }
+    
+    // Otherwise, initialize with defaults (preserving any new registered users if possible)
+    if (stored && storedVersion !== CURRENT_VERSION) {
+      // Merge: keep registered users that aren't in defaults
+      const oldUsers: SystemUser[] = JSON.parse(stored);
+      const defaultIds = defaultUsers.map(u => u.id);
+      const newRegisteredUsers = oldUsers.filter(u => !defaultIds.includes(u.id));
+      const mergedUsers = [...defaultUsers, ...newRegisteredUsers];
+      localStorage.setItem(USERS_VERSION_KEY, CURRENT_VERSION);
+      saveUsers(mergedUsers);
+      return mergedUsers;
+    }
+  } catch (e) {
+    console.error('Error loading users:', e);
+  }
+  
+  // Initialize with default users
+  localStorage.setItem(USERS_VERSION_KEY, CURRENT_VERSION);
+  saveUsers(defaultUsers);
+  return defaultUsers;
+};
+
+// Save users to localStorage
+export const saveUsers = (users: SystemUser[]): void => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+  } catch (e) {
+    console.error('Error saving users:', e);
+  }
+};
+
+// Add a new user
+export const addUser = (user: Omit<SystemUser, 'id'>): SystemUser => {
+  const users = getUsers();
+  // Find the highest existing ID number and increment
+  const maxId = users.reduce((max, u) => {
+    const idNum = parseInt(u.id.replace('USR-', ''), 10);
+    return idNum > max ? idNum : max;
+  }, 0);
+  const newId = `USR-${String(maxId + 1).padStart(3, '0')}`;
+  const newUser: SystemUser = { ...user, id: newId };
+  users.push(newUser);
+  saveUsers(users);
+  return newUser;
+};
+
+// Update user status
+export const updateUserStatus = (userId: string, status: 'Active' | 'Inactive' | 'Pending'): void => {
+  const users = getUsers();
+  const index = users.findIndex(u => u.id === userId);
+  if (index !== -1) {
+    users[index].status = status;
+    users[index].lastActive = status === 'Active' ? 'Just now' : users[index].lastActive;
+    saveUsers(users);
+  }
+};
+
+// Delete a user
+export const deleteUser = (userId: string): void => {
+  const users = getUsers();
+  const filtered = users.filter(u => u.id !== userId);
+  saveUsers(filtered);
+};
+
+// Authenticate user (for login)
+export const authenticateUser = (username: string, password: string, role: 'admin' | 'officer' | 'police'): { success: boolean; user?: SystemUser; error?: string } => {
+  const users = getUsers();
+  
+  const roleMap = {
+    admin: 'Admin',
+    officer: 'Officer', 
+    police: 'Police'
+  };
+  
+  const user = users.find(u => 
+    u.username.toLowerCase() === username.toLowerCase() && 
+    u.password === password &&
+    u.role === roleMap[role]
+  );
+  
+  if (!user) {
+    return { success: false, error: 'Invalid credentials. Please check your username, password, and selected role.' };
+  }
+  
+  if (user.status === 'Pending') {
+    return { success: false, error: 'Your account is pending approval. Please wait for admin verification.' };
+  }
+  
+  if (user.status === 'Inactive') {
+    return { success: false, error: 'Your account has been deactivated. Please contact the administrator.' };
+  }
+  
+  return { success: true, user };
+};
+
+// Register new law enforcement user
+export const registerLawEnforcementUser = (userData: {
+  fullName: string;
+  email: string;
+  phone: string;
+  serviceId: string;
+  postedStation: string;
+  district: string;
+  rank: string;
+  username: string;
+  password: string;
+}): SystemUser => {
+  return addUser({
+    username: userData.username,
+    password: userData.password,
+    name: userData.fullName,
+    email: userData.email,
+    phone: userData.phone,
+    role: 'Police',
+    status: 'Pending',
+    location: `${userData.district} - ${userData.postedStation}`,
+    joinedDate: new Date().toISOString().split('T')[0],
+    lastActive: 'Never',
+    serviceId: userData.serviceId,
+    rank: userData.rank
+  });
+};
+
+// Register new presiding officer user
+export const registerPresidingOfficerUser = (userData: {
+  fullName: string;
+  email: string;
+  phone: string;
+  employeeId: string;
+  pollingStation: string;
+  district: string;
+  designation: string;
+  username: string;
+  password: string;
+}): SystemUser => {
+  return addUser({
+    username: userData.username,
+    password: userData.password,
+    name: userData.fullName,
+    email: userData.email,
+    phone: userData.phone,
+    role: 'Officer',
+    status: 'Pending',
+    location: `${userData.district} - ${userData.pollingStation}`,
+    joinedDate: new Date().toISOString().split('T')[0],
+    lastActive: 'Never',
+    serviceId: userData.employeeId,
+    rank: userData.designation
+  });
+};
+
+// ====== INCIDENTS DATA ======
 export const incidents = [
   {
     id: 'INC-001',
