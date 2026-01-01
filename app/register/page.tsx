@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users, Upload, X, Eye, Download } from 'lucide-react';
+import { registerLawEnforcementUser, getUsers } from '@/data/mockData';
 
 // Bangladesh Districts and Thanas
 const districtThanaMap: Record<string, string[]> = {
@@ -260,6 +261,32 @@ export default function RegisterPage() {
       alert('Please upload your service identity card');
       return;
     }
+
+    // Check if username already exists
+    const existingUsers = getUsers();
+    if (existingUsers.some(u => u.username.toLowerCase() === formData.username.toLowerCase())) {
+      alert('Username already exists. Please choose a different username.');
+      return;
+    }
+
+    // Check if email already exists
+    if (existingUsers.some(u => u.email.toLowerCase() === formData.email.toLowerCase())) {
+      alert('Email already registered. Please use a different email.');
+      return;
+    }
+
+    // Register the user with Pending status
+    registerLawEnforcementUser({
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      serviceId: formData.serviceId,
+      postedStation: formData.postedStation,
+      district: formData.district,
+      rank: formData.rank,
+      username: formData.username,
+      password: formData.password
+    });
 
     // Handle form submission and redirect to success page
     router.push('/register/success');
