@@ -3,37 +3,17 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MapPin, LogOut, User, Navigation, CheckCircle, AlertTriangle, Clock, MapPinIcon, UserCog, Bell, X } from 'lucide-react';
+import { MapPin, LogOut, User, Navigation, CheckCircle, AlertTriangle, Clock, MapPinIcon, UserCog, X, Menu } from 'lucide-react';
 import UserProfileControls from '@/components/UserProfileControls';
-
-// Mock notifications data
-const mockNotifications = [
-  {
-    id: 'NOT-001',
-    incidentId: 'INC-001',
-    title: 'New High Priority Incident',
-    message: 'Voter intimidation reported at Dhaka-10, Mirpur Polling Station',
-    time: '2 minutes ago',
-    priority: 'HIGH',
-    read: false,
-  },
-  {
-    id: 'NOT-002',
-    incidentId: 'INC-004',
-    title: 'New Medium Priority Incident',
-    message: 'Crowd control issue at Dhaka-6, Tejgaon',
-    time: '15 minutes ago',
-    priority: 'MEDIUM',
-    read: false,
-  },
-];
 
 export default function PoliceDashboard() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState(mockNotifications);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [newNotification, setNewNotification] = useState<typeof mockNotifications[0] | null>(null);
   const [officerIncidents, setOfficerIncidents] = useState<any[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [allIncidentsList, setAllIncidentsList] = useState<any[]>([]);
+  const [activeUnacknowledgedIncidents, setActiveUnacknowledgedIncidents] = useState<any[]>([]);
 
   // Load officer-reported incidents from localStorage
   useEffect(() => {
@@ -43,23 +23,12 @@ export default function PoliceDashboard() {
         const incidents = JSON.parse(stored);
         setOfficerIncidents(incidents);
         
-        // Create notifications for new incidents
-        const existingIds = notifications.map(n => n.incidentId);
-        const newIncidents = incidents.filter((inc: any) => !existingIds.includes(inc.id));
+        // Store all incidents in the history list
+        setAllIncidentsList(incidents);
         
-        if (newIncidents.length > 0) {
-          const newNotifs = newIncidents.map((inc: any) => ({
-            id: `NOT-${inc.id}`,
-            incidentId: inc.id,
-            title: `🚨 NEW: ${inc.type.charAt(0).toUpperCase() + inc.type.slice(1)} Incident`,
-            message: inc.description.substring(0, 80) + (inc.description.length > 80 ? '...' : ''),
-            time: 'Just now',
-            priority: inc.severity.toUpperCase(),
-            read: false,
-            isFromOfficer: true,
-          }));
-          setNotifications(prev => [...newNotifs, ...prev]);
-        }
+        // Filter active unacknowledged incidents
+        const unacknowledged = incidents.filter((inc: any) => inc.status !== 'acknowledged');
+        setActiveUnacknowledgedIncidents(unacknowledged);
       }
     };
     loadIncidents();
@@ -67,58 +36,37 @@ export default function PoliceDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Simulate real-time notification
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const notification = {
-        id: `NOT-${Date.now()}`,
-        incidentId: `INC-${Math.floor(Math.random() * 100)}`,
-        title: 'New Incident Alert',
-        message: 'A new incident has been reported in your area',
-        time: 'Just now',
-        priority: Math.random() > 0.5 ? 'HIGH' : 'MEDIUM',
-        read: false,
-      };
-      
-      setNotifications(prev => [notification, ...prev]);
-      setNewNotification(notification);
-      
-      // Auto-hide toast after 5 seconds
-      setTimeout(() => setNewNotification(null), 5000);
-    }, 45000); // 45 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleNotificationClick = (incidentId: string) => {
-    setShowNotifications(false);
-    router.push('/dashboard/police/map');
-  };
-
-  const handleMarkAsRead = (notificationId: string) => {
-    setNotifications(prev =>
-      prev.map(notif =>
-        notif.id === notificationId ? { ...notif, read: true } : notif
-      )
-    );
-  };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
   const handleLogout = () => {
     router.push('/');
   };
 
   const handleAcknowledge = (incidentId: string) => {
-    alert(`Incident ${incidentId} acknowledged`);
+    const updatedIncidents = officerIncidents.map(incident => {
+      if (incident.id === incidentId) {
+        return { ...incident, status: 'acknowledged', acknowledgedAt: new Date().toISOString() };
+      }
+      return incident;
+    });
+    setOfficerIncidents(updatedIncidents);
+    localStorage.setItem('reportedIncidents', JSON.stringify(updatedIncidents));
+    alert('Incident acknowledged successfully!');
   };
 
-  const handleNavigate = (location: string) => {
-    alert(`Navigating to ${location}`);
+  const handleNavigate = (incident: any) => {
+    // If incident has GPS coordinates, open in Google Maps
+    if (incident.gpsLocation) {
+      const { lat, lng } = incident.gpsLocation;
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, '_blank');
+    } else {
+      // Fallback to location string search
+      const location = encodeURIComponent(incident.location);
+      window.open(`https://www.google.com/maps/search/?api=1&query=${location}`, '_blank');
+    }
   };
 
-  const handleViewDetails = (incidentId: string) => {
-    router.push(`/dashboard/admin/incidents/${incidentId}`);
+  const handleViewDetails = (incident: any) => {
+    setSelectedIncident(incident);
+    setShowDetailsModal(true);
   };
 
   const handleViewMap = (incidentId: string) => {
@@ -127,418 +75,475 @@ export default function PoliceDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* New Incident Toast Notification */}
-      {newNotification && (
-        <div className="fixed top-20 right-6 z-50 bg-red-600 text-white rounded-xl shadow-2xl p-4 max-w-sm animate-slide-in">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center flex-shrink-0">
-                <Bell className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-bold mb-1">{newNotification.title}</p>
-                <p className="text-sm text-red-100 mb-2">{newNotification.message}</p>
-                <button
-                  onClick={() => handleNotificationClick(newNotification.incidentId)}
-                  className="text-sm font-semibold underline hover:text-white"
-                >
-                  View on Map →
-                </button>
-              </div>
+      {/* Header */}
+      <div className="bg-red-600 text-white px-6 py-4 flex items-center justify-between shadow-md relative">
+        {/* Hamburger Menu Button */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-all duration-200 mr-4"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+
+        <h1 className="text-xl font-semibold">Law Enforcement Alert System</h1>
+        <UserProfileControls role="police" showEditProfile={true} />
+      </div>
+
+      {/* Sliding Sidebar Menu */}
+      {sidebarOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setSidebarOpen(false)}
+          ></div>
+          
+          {/* Sidebar */}
+          <div className="fixed inset-y-0 left-0 w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300">
+            <div className="p-4 flex items-center justify-between border-b border-gray-200 bg-white">
+              <h4 className="font-semibold text-lg">Menu</h4>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <button
-              onClick={() => setNewNotification(null)}
-              className="hover:bg-white hover:bg-opacity-20 p-1 rounded flex-shrink-0"
-            >
-              <X className="w-4 h-4" />
-            </button>
+
+            <nav className="p-4">
+              <Link
+                href="/dashboard/police/map"
+                onClick={() => setSidebarOpen(false)}
+                className="flex items-start gap-3 p-4 rounded-lg hover:bg-green-50 transition-colors border-2 border-green-500 bg-green-50"
+              >
+                <MapPin className="w-5 h-5 text-green-600 mt-1" />
+                <div>
+                  <div className="text-base font-semibold text-gray-900">View Map</div>
+                  <div className="text-sm text-gray-500">Live incidents</div>
+                </div>
+              </Link>
+            </nav>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Header */}
-      <div className="bg-red-600 text-white px-6 py-4 flex items-center justify-between shadow-md">
-        <h1 className="text-xl font-semibold">Law Enforcement Alert System</h1>
-        <div className="flex items-center gap-6">
-          {/* Notification Bell */}
-          <div className="relative">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative flex items-center gap-2 px-3 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-all duration-200"
-            >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-yellow-400 text-red-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
+      <div className="flex">
+        {/* Removed Static Sidebar - Now using sliding menu */}
+        <div className="flex-1 p-6 max-w-[1600px] mx-auto">
+          {/* Priority Levels Legend */}
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 mb-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Priority Levels</h3>
+            <div className="flex flex-wrap gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 bg-red-600 rounded-full"></div>
+                <span className="text-sm font-semibold text-gray-700">High Priority</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 bg-orange-500 rounded-full"></div>
+                <span className="text-sm font-semibold text-gray-700">Medium Priority</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-5 h-5 bg-gray-400 rounded-full"></div>
+                <span className="text-sm font-semibold text-gray-700">Acknowledged</span>
+              </div>
+            </div>
+          </div>
 
-            {/* Notifications Dropdown */}
-            {showNotifications && (
-              <div className="absolute top-full right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl overflow-hidden z-50">
-                <div className="bg-red-600 text-white px-4 py-3 flex items-center justify-between">
-                  <h3 className="font-semibold">Notifications</h3>
-                  <button
-                    onClick={() => setShowNotifications(false)}
-                    className="hover:bg-white hover:bg-opacity-20 p-1 rounded"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+          {/* Statistics Dashboard */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
-                <div className="max-h-96 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="p-6 text-center text-gray-500">
-                      <Bell className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                      <p>No notifications</p>
-                    </div>
-                  ) : (
-                    notifications.map((notif) => (
-                      <div
-                        key={notif.id}
-                        className={`p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors ${
-                          !notif.read ? 'bg-blue-50' : ''
-                        }`}
-                        onClick={() => handleNotificationClick(notif.incidentId)}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-10 h-10 ${
-                            notif.priority === 'HIGH' ? 'bg-red-600' : 'bg-yellow-600'
-                          } rounded-full flex items-center justify-center flex-shrink-0`}>
-                            <AlertTriangle className="w-5 h-5 text-white" />
+                <span className="text-red-600 font-bold text-2xl">{officerIncidents.filter(inc => inc.status !== 'acknowledged').length}</span>
+              </div>
+              <h3 className="text-gray-600 text-sm font-medium">Active Alerts</h3>
+              <p className="text-xs text-gray-500 mt-1">Pending incidents</p>
+            </div>
+            
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
+                  <Clock className="w-6 h-6 text-orange-600" />
+                </div>
+                <span className="text-orange-600 font-bold text-2xl">{officerIncidents.filter(inc => inc.severity === 'high' || inc.severity === 'critical').length}</span>
+              </div>
+              <h3 className="text-gray-600 text-sm font-medium">High Priority</h3>
+              <p className="text-xs text-gray-500 mt-1">Urgent response needed</p>
+            </div>
+            
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
+                  <MapPin className="w-6 h-6 text-blue-600" />
+                </div>
+                <span className="text-blue-600 font-bold text-2xl">{officerIncidents.length}</span>
+              </div>
+              <h3 className="text-gray-600 text-sm font-medium">From Officers</h3>
+              <p className="text-xs text-gray-500 mt-1">Field reported</p>
+            </div>
+            
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <span className="text-green-600 font-bold text-2xl">
+                  {officerIncidents.length > 0 ? officerIncidents.length : '-'}
+                </span>
+              </div>
+              <h3 className="text-gray-600 text-sm font-medium">Total Incidents</h3>
+              <p className="text-xs text-gray-500 mt-1">All reported</p>
+            </div>
+          </div>
+
+          {/* Active Unacknowledged Incidents Section */}
+          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-200 mb-6">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Active Unacknowledged Incidents</h2>
+                <p className="text-sm text-gray-500 mt-1">Real-time incident monitoring and response</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-semibold flex items-center gap-2">
+                  <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+                  {activeUnacknowledgedIncidents.length} Active
+                </div>
+                <Link
+                  href="/dashboard/police/map"
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <MapPin className="w-4 h-4" />
+                  View Map
+                </Link>
+              </div>
+            </div>
+
+            {activeUnacknowledgedIncidents.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-500" />
+                <p className="text-lg font-medium">All incidents have been acknowledged</p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {activeUnacknowledgedIncidents.map((incident: any) => {
+                  const severityColors: Record<string, { bg: string; border: string; badge: string; shadow: string }> = {
+                    low: { bg: 'bg-blue-50', border: 'border-blue-300', badge: 'bg-blue-600', shadow: 'hover:shadow-blue-200' },
+                    medium: { bg: 'bg-yellow-50', border: 'border-yellow-300', badge: 'bg-yellow-600', shadow: 'hover:shadow-yellow-200' },
+                    high: { bg: 'bg-orange-50', border: 'border-orange-300', badge: 'bg-orange-600', shadow: 'hover:shadow-orange-200' },
+                    critical: { bg: 'bg-red-50', border: 'border-red-300', badge: 'bg-red-600', shadow: 'hover:shadow-red-200' },
+                  };
+                  const colors = severityColors[incident.severity] || severityColors.medium;
+                  const incidentTime = new Date(incident.timestamp);
+                  const timeStr = incidentTime.toLocaleTimeString('en-US', { hour12: false });
+                  const minutesAgo = Math.floor((Date.now() - incidentTime.getTime()) / 60000);
+                  
+                  return (
+                    <div key={incident.id} className={`${colors.bg} border ${colors.border} rounded-xl p-6 shadow-sm ${colors.shadow} hover:shadow-lg transition-all duration-300`}>
+                      <div className="flex items-start gap-3 mb-4">
+                        <span className={`${colors.badge} text-white font-bold text-xs px-3 py-1 rounded-md`}>
+                          {incident.severity.toUpperCase()}
+                        </span>
+                        <span className="text-gray-600 font-semibold">{incident.id}</span>
+                        <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-md ml-auto">
+                          🆕 NEW FROM OFFICER
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        {incident.type.charAt(0).toUpperCase() + incident.type.slice(1)} Incident
+                      </h3>
+                      <p className="text-gray-600 text-sm mb-4">{incident.description}</p>
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        <div className="flex items-start gap-2">
+                          <MapPinIcon className="w-5 h-5 text-gray-500 mt-0.5" />
+                          <div>
+                            <p className="font-semibold text-gray-900">{incident.location}</p>
+                            <p className="text-sm text-gray-500">Polling Center</p>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-semibold text-gray-900 text-sm">{notif.title}</p>
-                              {!notif.read && (
-                                <span className="w-2 h-2 bg-blue-600 rounded-full"></span>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-600 mb-1">{notif.message}</p>
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs text-gray-500">{notif.time}</p>
-                              <span className="text-xs text-blue-600 font-medium">View on Map →</span>
-                            </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Clock className="w-5 h-5 text-gray-500 mt-0.5" />
+                          <div>
+                            <p className="font-semibold text-gray-900">{timeStr}</p>
+                            <p className="text-sm text-gray-500">{minutesAgo} min ago</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="w-5 h-5 text-gray-500 mt-0.5" />
+                          <div>
+                            <p className="font-semibold text-gray-900">{incident.type.charAt(0).toUpperCase() + incident.type.slice(1)}</p>
+                            <p className="text-sm text-gray-500">Incident Type</p>
                           </div>
                         </div>
                       </div>
-                    ))
-                  )}
-                </div>
-                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
-                  <Link
-                    href="/dashboard/police/map"
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                    onClick={() => setShowNotifications(false)}
-                  >
-                    View All on Map →
-                  </Link>
-                </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleNavigate(incident)}
+                          className="bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm"
+                        >
+                          <Navigation className="w-4 h-4" />
+                          Navigate
+                        </button>
+                        <button
+                          onClick={() => handleAcknowledge(incident.id)}
+                          className="bg-green-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Acknowledge
+                        </button>
+                        <button
+                          onClick={() => handleViewDetails(incident)}
+                          className="bg-gray-100 text-gray-700 font-semibold px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 border border-gray-300 shadow-sm"
+                        >
+                          <MapPin className="w-4 h-4" />
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          <UserProfileControls role="police" />
-        </div>
-      </div>
-
-      <div className="flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-white border-r border-gray-200 min-h-[calc(100vh-72px)] p-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6 pb-3 border-b border-gray-200">
-            Enforcement Menu
-          </h2>
-          <div className="space-y-3">
-            <Link 
-              href="/dashboard/police/map"
-              className="w-full bg-green-50 border-2 border-green-500 text-green-700 px-4 py-3 rounded-lg hover:bg-green-100 transition-colors flex items-center gap-3"
-            >
-              <MapPin className="w-5 h-5" />
-              <div className="text-left">
-                <p className="font-semibold">View Map</p>
-                <p className="text-sm text-green-600">Live incidents</p>
+          {/* All Incidents List Section */}
+          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-200 mb-6">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">All Incidents List</h2>
+                <p className="text-sm text-gray-500 mt-1">Complete history of all reported incidents</p>
               </div>
-            </Link>
-            <Link 
-              href="/dashboard/police/profile"
-              className="w-full bg-blue-50 border-2 border-blue-500 text-blue-700 px-4 py-3 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-3"
-            >
-              <UserCog className="w-5 h-5" />
-              <div className="text-left">
-                <p className="font-semibold">Edit Profile</p>
-                <p className="text-sm text-blue-600">Update your info</p>
-              </div>
-            </Link>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex-1 p-6">
-          {/* Priority Alert Banner */}
-          <div className="bg-gradient-to-r from-red-400 via-red-300 to-orange-300 rounded-2xl p-6 mb-6 shadow-lg">
-            <div className="flex items-start gap-4 mb-4">
-              <div className="w-12 h-12 bg-white bg-opacity-30 rounded-xl flex items-center justify-center">
-                <AlertTriangle className="w-7 h-7 text-white" strokeWidth={2.5} />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="bg-white text-red-600 font-bold text-sm px-3 py-1 rounded-full">
-                    PRIORITY ALERT
-                  </span>
-                  <span className="bg-red-500 text-white font-bold text-sm px-3 py-1 rounded-full">
-                    HIGH
-                  </span>
-                </div>
-                <h3 className="text-2xl font-bold text-white mb-3">Voter intimidation reported</h3>
-                <div className="flex items-center justify-between text-white">
-                  <div className="flex items-center gap-2">
-                    <MapPinIcon className="w-5 h-5" />
-                    <div>
-                      <p className="font-semibold">Dhaka-10, Mirpur Polling Station</p>
-                      <p className="text-sm text-white text-opacity-90">Distance: 1.6 km from your location</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5" />
-                    <div className="text-right">
-                      <p className="font-semibold">15:15:00</p>
-                      <p className="text-sm text-white text-opacity-90">815 minutes ago</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleNavigate('Dhaka-10, Mirpur Polling Station')}
-                className="bg-white text-red-600 font-semibold px-6 py-2.5 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
-              >
-                <Navigation className="w-4 h-4" />
-                Navigate
-              </button>
-              <button
-                onClick={() => handleAcknowledge('INC-001')}
-                className="bg-white bg-opacity-20 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-opacity-30 transition-colors flex items-center gap-2"
-              >
-                <CheckCircle className="w-4 h-4" />
-                Acknowledge
-              </button>
-              <button
-                onClick={() => handleViewMap('INC-001')}
-                className="bg-white bg-opacity-20 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-opacity-30 transition-colors flex items-center gap-2"
-              >
-                <MapPin className="w-4 h-4" />
-                View Map
-              </button>
-            </div>
-          </div>
-
-          {/* All Active Alerts Section */}
-          <div className="bg-white rounded-2xl shadow-sm p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-800">All Active Alerts</h2>
-              <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg font-semibold">
-                {2 + officerIncidents.length} pending incidents
+              <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg font-semibold">
+                {allIncidentsList.length} Total Incidents
               </div>
             </div>
 
-            {/* Alert Cards */}
-            <div className="space-y-4">
-              {/* Officer Reported Incidents (Dynamic) */}
-              {officerIncidents.map((incident: any) => {
-                const severityColors: Record<string, { bg: string; border: string; badge: string }> = {
-                  low: { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-600' },
-                  medium: { bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-yellow-600' },
-                  high: { bg: 'bg-orange-50', border: 'border-orange-200', badge: 'bg-orange-600' },
-                  critical: { bg: 'bg-red-50', border: 'border-red-200', badge: 'bg-red-600' },
-                };
-                const colors = severityColors[incident.severity] || severityColors.medium;
-                const incidentTime = new Date(incident.timestamp);
-                const timeStr = incidentTime.toLocaleTimeString('en-US', { hour12: false });
-                const minutesAgo = Math.floor((Date.now() - incidentTime.getTime()) / 60000);
-                
-                return (
-                  <div key={incident.id} className={`${colors.bg} border-2 ${colors.border} rounded-xl p-5`}>
-                    <div className="flex items-start gap-3 mb-4">
-                      <span className={`${colors.badge} text-white font-bold text-xs px-3 py-1 rounded-md`}>
-                        {incident.severity.toUpperCase()}
-                      </span>
-                      <span className="text-gray-600 font-semibold">{incident.id}</span>
-                      <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-md ml-auto">
-                        🆕 NEW FROM OFFICER
-                      </span>
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      {incident.type.charAt(0).toUpperCase() + incident.type.slice(1)} Incident
-                    </h3>
-                    <p className="text-gray-600 text-sm mb-4">{incident.description}</p>
-                    <div className="grid grid-cols-3 gap-4 mb-4">
-                      <div className="flex items-start gap-2">
-                        <MapPinIcon className="w-5 h-5 text-gray-500 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-gray-900">{incident.location}</p>
-                          <p className="text-sm text-gray-500">Polling Center</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <Clock className="w-5 h-5 text-gray-500 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-gray-900">{timeStr}</p>
-                          <p className="text-sm text-gray-500">{minutesAgo} min ago</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="w-5 h-5 text-gray-500 mt-0.5" />
-                        <div>
-                          <p className="font-semibold text-gray-900">{incident.type.charAt(0).toUpperCase() + incident.type.slice(1)}</p>
-                          <p className="text-sm text-gray-500">Incident Type</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => handleNavigate(incident.location)}
-                        className="bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                      >
-                        <Navigation className="w-4 h-4" />
-                        Navigate
-                      </button>
-                      <button
-                        onClick={() => handleAcknowledge(incident.id)}
-                        className="bg-green-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        Acknowledge
-                      </button>
-                      <button
-                        onClick={() => handleViewDetails(incident.id)}
-                        className="bg-gray-100 text-gray-700 font-semibold px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
-                      >
-                        <MapPin className="w-4 h-4" />
-                        View Details
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* HIGH Priority Alert (Mock) */}
-              <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
-                <div className="flex items-start gap-3 mb-4">
-                  <span className="bg-red-600 text-white font-bold text-xs px-3 py-1 rounded-md">
-                    HIGH
-                  </span>
-                  <span className="text-gray-600 font-semibold">INC-001</span>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Voter intimidation reported</h3>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="flex items-start gap-2">
-                    <MapPinIcon className="w-5 h-5 text-gray-500 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-gray-900">Dhaka-10, Mirpur Polling Station</p>
-                      <p className="text-sm text-gray-500">1.6 km away</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Clock className="w-5 h-5 text-gray-500 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-gray-900">15:15:00</p>
-                      <p className="text-sm text-gray-500">815 min ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="w-5 h-5 text-gray-500 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-gray-900">Intimidation</p>
-                      <p className="text-sm text-gray-500">Incident Type</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleNavigate('Dhaka-10, Mirpur Polling Station')}
-                    className="bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                  >
-                    <Navigation className="w-4 h-4" />
-                    Navigate
-                  </button>
-                  <button
-                    onClick={() => handleAcknowledge('INC-001')}
-                    className="bg-green-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    Acknowledge
-                  </button>
-                  <button
-                    onClick={() => handleViewDetails('INC-001')}
-                    className="bg-gray-100 text-gray-700 font-semibold px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
-                  >
-                    <MapPin className="w-4 h-4" />
-                    View Details
-                  </button>
-                </div>
+            {allIncidentsList.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <AlertTriangle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                <p className="text-lg font-medium">No incidents reported yet</p>
               </div>
-
-              {/* MEDIUM Priority Alert */}
-              <div className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-5">
-                <div className="flex items-start gap-3 mb-4">
-                  <span className="bg-yellow-600 text-white font-bold text-xs px-3 py-1 rounded-md">
-                    MEDIUM
-                  </span>
-                  <span className="text-gray-600 font-semibold">INC-004</span>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Crowd control issue</h3>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="flex items-start gap-2">
-                    <MapPinIcon className="w-5 h-5 text-gray-500 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-gray-900">Dhaka-6, Tejgaon</p>
-                      <p className="text-sm text-gray-500">12.3 km away</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <Clock className="w-5 h-5 text-gray-500 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-gray-900">16:00:00</p>
-                      <p className="text-sm text-gray-500">770 min ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="w-5 h-5 text-gray-500 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-gray-900">Disturbance</p>
-                      <p className="text-sm text-gray-500">Incident Type</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleNavigate('Dhaka-6, Tejgaon')}
-                    className="bg-blue-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                  >
-                    <Navigation className="w-4 h-4" />
-                    Navigate
-                  </button>
-                  <button
-                    onClick={() => handleAcknowledge('INC-004')}
-                    className="bg-green-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    Acknowledge
-                  </button>
-                  <button
-                    onClick={() => handleViewDetails('INC-004')}
-                    className="bg-gray-100 text-gray-700 font-semibold px-5 py-2.5 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
-                  >
-                    <MapPin className="w-4 h-4" />
-                    View Details
-                  </button>
-                </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b-2 border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Severity</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Time</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {allIncidentsList.map((incident: any) => {
+                      const incidentTime = new Date(incident.timestamp);
+                      const timeStr = incidentTime.toLocaleString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+                      
+                      return (
+                        <tr key={incident.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{incident.id}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700 capitalize">{incident.type}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{incident.location}</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-md ${
+                              incident.severity === 'critical' || incident.severity === 'high'
+                                ? 'bg-red-100 text-red-700'
+                                : incident.severity === 'medium'
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {incident.severity.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-md ${
+                              incident.status === 'acknowledged'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {incident.status === 'acknowledged' ? 'Acknowledged' : 'Pending'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{timeStr}</td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => handleViewDetails(incident)}
+                              className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Incident Details Modal */}
+      {showDetailsModal && selectedIncident && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="bg-red-600 text-white px-6 py-4 flex items-center justify-between sticky top-0">
+              <div>
+                <h2 className="text-xl font-bold">Incident Details</h2>
+                <p className="text-sm text-red-100">ID: {selectedIncident.id}</p>
+              </div>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="p-2 hover:bg-red-700 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Status and Priority */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-500 mb-1">Status</p>
+                  <p className="font-semibold text-gray-900 capitalize">{selectedIncident.status || 'Pending'}</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <p className="text-sm text-gray-500 mb-1">Severity</p>
+                  <p className={`font-semibold capitalize ${
+                    selectedIncident.severity === 'high' || selectedIncident.severity === 'critical'
+                      ? 'text-red-600'
+                      : selectedIncident.severity === 'medium'
+                      ? 'text-orange-600'
+                      : 'text-blue-600'
+                  }`}>
+                    {selectedIncident.severity}
+                  </p>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Description</h3>
+                <p className="text-gray-700 leading-relaxed">{selectedIncident.description}</p>
+              </div>
+
+              {/* Location */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Location</h3>
+                <div className="bg-blue-50 p-4 rounded-lg flex items-start gap-3">
+                  <MapPin className="w-5 h-5 text-blue-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-gray-900">{selectedIncident.location}</p>
+                    {selectedIncident.gpsLocation && (
+                      <p className="text-sm text-gray-600 mt-1">
+                        GPS: {selectedIncident.gpsLocation.lat.toFixed(6)}, {selectedIncident.gpsLocation.lng.toFixed(6)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Type */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Incident Type</h3>
+                <p className="text-gray-700 capitalize">{selectedIncident.type}</p>
+              </div>
+
+              {/* Timestamp */}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Reported Time</h3>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Clock className="w-5 h-5" />
+                  <p>{new Date(selectedIncident.timestamp).toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Attachments */}
+              {selectedIncident.attachments && selectedIncident.attachments.length > 0 && (
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Attachments ({selectedIncident.attachments.length})</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedIncident.attachments.map((file: any) => (
+                      <div key={file.id} className="border border-gray-200 rounded-lg overflow-hidden hover:border-blue-400 transition-colors group">
+                        {file.type.startsWith('image/') ? (
+                          <div className="relative">
+                            <img 
+                              src={file.url} 
+                              alt={file.name}
+                              className="w-full h-48 object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity flex items-center justify-center">
+                              <button
+                                onClick={() => window.open(file.url, '_blank')}
+                                className="opacity-0 group-hover:opacity-100 bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
+                              >
+                                View Full Size
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="h-48 bg-gray-100 flex items-center justify-center">
+                            <div className="text-center">
+                              <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                              </svg>
+                              <p className="text-xs text-gray-500">PDF Document</p>
+                            </div>
+                          </div>
+                        )}
+                        <div className="p-3 bg-white">
+                          <p className="font-medium text-sm text-gray-900 truncate">{file.name}</p>
+                          <p className="text-xs text-gray-500 mt-1">{(file.size / 1024).toFixed(1)} KB</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    handleNavigate(selectedIncident);
+                  }}
+                  className="flex-1 bg-blue-600 text-white font-semibold px-5 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Navigation className="w-5 h-5" />
+                  Navigate to Location
+                </button>
+                <button
+                  onClick={() => {
+                    handleAcknowledge(selectedIncident.id);
+                    setShowDetailsModal(false);
+                  }}
+                  disabled={selectedIncident.status === 'acknowledged'}
+                  className={`flex-1 font-semibold px-5 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                    selectedIncident.status === 'acknowledged'
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700'
+                  }`}
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  {selectedIncident.status === 'acknowledged' ? 'Acknowledged' : 'Acknowledge'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <style jsx global>{`
         @keyframes slideInRight {

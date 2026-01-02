@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, User, LogOut, CheckCircle, Save, X, Camera, MapPin, Clock, Upload, FileText, Image, Trash2, Lock, ArrowLeft, ChevronDown } from 'lucide-react';
+import UserProfileControls from '@/components/UserProfileControls';
 
 interface AttachedFile {
   id: string;
@@ -351,24 +352,7 @@ export default function OfficerDashboard() {
               </button>
               <h1 className="text-xl font-semibold text-white">Vote Submission Confirmed</h1>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-400 flex items-center justify-center border-2 border-blue-300">
-                  <User className="w-6 h-6 text-white" />
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-white">Presiding Officer - Dhaka</p>
-                  <p className="text-xs text-blue-200">Presiding Officer</p>
-                </div>
-              </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded-lg transition-all duration-200"
-              >
-                <LogOut className="w-4 h-4 text-white" />
-                <span className="text-white text-sm font-medium">Logout</span>
-              </button>
-            </div>
+            <UserProfileControls role="officer" onLogout={handleLogout} showEditProfile={true} />
           </div>
         </div>
 
@@ -729,24 +713,7 @@ export default function OfficerDashboard() {
       <div className="bg-indigo-600 shadow-md">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <h1 className="text-xl font-semibold text-white">Vote Entry Dashboard</h1>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center">
-                <User className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold text-white">{userName}</p>
-                <p className="text-xs text-indigo-200">{userRole}</p>
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-400 rounded-lg transition-all duration-200"
-            >
-              <LogOut className="w-4 h-4 text-white" />
-              <span className="text-white text-sm font-medium">Logout</span>
-            </button>
-          </div>
+          <UserProfileControls role="officer" onLogout={handleLogout} showEditProfile={true} />
         </div>
       </div>
 

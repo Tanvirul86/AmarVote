@@ -156,12 +156,16 @@ export default function AdminDashboard() {
       severity: inc.severity.toUpperCase(),
       title: inc.description,
       location: inc.location,
-      status: 'pending',
-      isNew: true,
+      status: inc.status || 'pending',
+      isNew: inc.status !== 'acknowledged',
+      timestamp: inc.timestamp,
     })),
     // Then add mock incidents
     ...mockIncidents,
   ];
+
+  // Count only active (non-acknowledged) incidents
+  const activeIncidentsCount = officerIncidents.filter(inc => inc.status !== 'acknowledged').length;
 
   const topPollingCenters = [
     { name: 'Radio Colony Model School', location: 'Sakot', votes: 3450, turnout: '58% turnout' },
@@ -197,7 +201,7 @@ export default function AdminDashboard() {
 
             <div className="flex items-center gap-4">
               <NotificationBell />
-              <UserProfileControls role="admin" onLogout={handleLogout} />
+              <UserProfileControls role="admin" onLogout={handleLogout} showEditProfile={true} />
             </div>
           </div>
         </header>
@@ -269,16 +273,16 @@ export default function AdminDashboard() {
             )}
 
             {/* Total Incidents */}
-            <div className={`bg-white rounded-lg border p-6 ${officerIncidents.length > 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
+            <div className={`bg-white rounded-lg border p-6 ${activeIncidentsCount > 0 ? 'border-red-300 bg-red-50' : 'border-gray-200'}`}>
               <div className="flex items-start justify-between mb-4">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${officerIncidents.length > 0 ? 'bg-red-100' : 'bg-blue-100'}`}>
-                  <FileText className={`w-6 h-6 ${officerIncidents.length > 0 ? 'text-red-600' : 'text-blue-600'}`} />
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${activeIncidentsCount > 0 ? 'bg-red-100' : 'bg-blue-100'}`}>
+                  <FileText className={`w-6 h-6 ${activeIncidentsCount > 0 ? 'text-red-600' : 'text-blue-600'}`} />
                 </div>
-                <span className={`text-3xl font-bold ${officerIncidents.length > 0 ? 'text-red-600' : 'text-blue-600'}`}>{recentIncidents.length}</span>
+                <span className={`text-3xl font-bold ${activeIncidentsCount > 0 ? 'text-red-600' : 'text-blue-600'}`}>{activeIncidentsCount}</span>
               </div>
-              <h3 className="text-sm font-medium text-gray-700">Total Incidents</h3>
+              <h3 className="text-sm font-medium text-gray-700">Active Incidents</h3>
               <p className="text-xs text-gray-500">
-                {officerIncidents.length > 0 ? `🚨 ${officerIncidents.length} NEW from officers` : '4 from mock data'}
+                {activeIncidentsCount > 0 ? `🚨 ${activeIncidentsCount} pending response` : 'No active incidents'}
               </p>
             </div>
 

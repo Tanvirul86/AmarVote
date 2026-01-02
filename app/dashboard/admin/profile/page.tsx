@@ -5,16 +5,16 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, User, Upload, Camera, Save, X } from 'lucide-react';
 
-export default function ProfileEditPage() {
+export default function AdminProfileEditPage() {
   const router = useRouter();
   const [profileData, setProfileData] = useState({
-    fullName: 'Officer Rahman',
-    email: 'rahman@police.gov.bd',
+    fullName: 'System Administrator',
+    email: 'admin@bec.gov.bd',
     phone: '+880 1712-345678',
-    badge: 'BD-DMP-15432',
-    station: 'Dhaka Metro',
+    badge: 'BEC-ADMIN-001',
+    department: 'Bangladesh Election Commission',
     district: 'Dhaka',
-    rank: 'Inspector',
+    rank: 'System Administrator',
   });
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -91,13 +91,13 @@ export default function ProfileEditPage() {
       // Save to localStorage
       const userData = {
         name: profileData.fullName,
-        role: 'Law Enforcement',
+        role: 'BEC Admin',
         avatar: avatarDataUrl || '',
       };
       
       localStorage.setItem('user', JSON.stringify(userData));
       alert('Profile updated successfully!');
-      router.push('/dashboard/police');
+      router.push('/dashboard/admin');
     } catch (error) {
       console.error('Error saving profile:', error);
       alert('Failed to save profile. Please try again.');
@@ -107,17 +107,17 @@ export default function ProfileEditPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-red-600 text-white px-6 py-4 shadow-md">
+      <div className="bg-green-600 text-white px-6 py-4 shadow-md">
         <div className="flex items-center gap-4">
           <Link 
-            href="/dashboard/police"
+            href="/dashboard/admin"
             className="hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-6 h-6" />
           </Link>
           <div>
             <h1 className="text-2xl font-bold">Edit Profile</h1>
-            <p className="text-red-100 text-sm">Update your personal information and profile picture</p>
+            <p className="text-green-100 text-sm">Update your personal information and profile picture</p>
           </div>
         </div>
       </div>
@@ -127,7 +127,7 @@ export default function ProfileEditPage() {
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <form onSubmit={handleSave}>
             {/* Profile Picture Section */}
-            <div className="bg-gradient-to-br from-red-600 to-red-700 px-8 py-10 text-white">
+            <div className="bg-gradient-to-br from-green-600 to-green-700 px-8 py-10 text-white">
               <h2 className="text-xl font-semibold mb-6">Profile Picture</h2>
               <div className="flex items-center gap-8">
                 {/* Current/Preview Image */}
@@ -147,7 +147,7 @@ export default function ProfileEditPage() {
                     <button
                       type="button"
                       onClick={handleRemoveImage}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                      className="absolute -top-2 -right-2 bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors shadow-lg"
                       title="Remove image"
                     >
                       <X className="w-4 h-4" />
@@ -160,7 +160,7 @@ export default function ProfileEditPage() {
                   <h3 className="font-semibold mb-2">
                     {profileImage ? 'Image Selected' : 'Upload New Picture'}
                   </h3>
-                  <p className="text-red-100 text-sm mb-4">
+                  <p className="text-green-100 text-sm mb-4">
                     {profileImage 
                       ? `${profileImage.name} (${(profileImage.size / 1024).toFixed(1)} KB)` 
                       : 'JPG, PNG, or GIF (Max 5MB)'
@@ -176,7 +176,7 @@ export default function ProfileEditPage() {
                     />
                     <label
                       htmlFor="profileImageUpload"
-                      className="inline-flex items-center gap-2 bg-white text-red-600 font-semibold px-5 py-2.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-2 bg-white text-green-600 font-semibold px-5 py-2.5 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
                     >
                       <Camera className="w-5 h-5" />
                       {profileImage ? 'Change Picture' : 'Choose Picture'}
@@ -194,53 +194,53 @@ export default function ProfileEditPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Full Name <span className="text-red-600">*</span>
+                    Full Name <span className="text-green-600">*</span>
                   </label>
                   <input
                     type="text"
                     name="fullName"
                     value={profileData.fullName}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Email Address <span className="text-red-600">*</span>
+                    Email Address <span className="text-green-600">*</span>
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={profileData.email}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Phone Number <span className="text-red-600">*</span>
+                    Phone Number <span className="text-green-600">*</span>
                   </label>
                   <input
                     type="tel"
                     name="phone"
                     value={profileData.phone}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Badge Number <span className="text-red-600">*</span>
+                    Admin ID <span className="text-green-600">*</span>
                   </label>
                   <input
                     type="text"
                     name="badge"
                     value={profileData.badge}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -252,40 +252,40 @@ export default function ProfileEditPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Posted Station <span className="text-red-600">*</span>
+                    Department <span className="text-green-600">*</span>
                   </label>
                   <input
                     type="text"
-                    name="station"
-                    value={profileData.station}
+                    name="department"
+                    value={profileData.department}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    District <span className="text-red-600">*</span>
+                    District <span className="text-green-600">*</span>
                   </label>
                   <input
                     type="text"
                     name="district"
                     value={profileData.district}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Rank <span className="text-red-600">*</span>
+                    Role <span className="text-green-600">*</span>
                   </label>
                   <input
                     type="text"
                     name="rank"
                     value={profileData.rank}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -294,14 +294,14 @@ export default function ProfileEditPage() {
               {/* Action Buttons */}
               <div className="flex gap-4 mt-8 pt-6 border-t-2 border-gray-200">
                 <Link
-                  href="/dashboard/police"
+                  href="/dashboard/admin"
                   className="flex-1 text-center border-2 border-gray-300 text-gray-700 font-semibold py-3.5 px-6 rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </Link>
                 <button
                   type="submit"
-                  className="flex-1 bg-red-600 text-white font-semibold py-3.5 px-6 rounded-xl hover:bg-red-700 transition-colors shadow-md flex items-center justify-center gap-2"
+                  className="flex-1 bg-green-600 text-white font-semibold py-3.5 px-6 rounded-xl hover:bg-green-700 transition-colors shadow-md flex items-center justify-center gap-2"
                 >
                   <Save className="w-5 h-5" />
                   Save Changes

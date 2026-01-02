@@ -52,12 +52,41 @@ const mockIncidents = [
 ];
 
 export default function MapPage() {
-  const [incidents, setIncidents] = useState(mockIncidents);
-  const [selectedIncident, setSelectedIncident] = useState<typeof mockIncidents[0] | null>(null);
-  const [notification, setNotification] = useState<typeof mockIncidents[0] | null>(null);
+  const [incidents, setIncidents] = useState<any[]>([]);
+  const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
+  const [notification, setNotification] = useState<any | null>(null);
   const mapRef = useRef<any>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+
+  // Load real incidents from localStorage
+  useEffect(() => {
+    const loadIncidents = () => {
+      const stored = localStorage.getItem('reportedIncidents');
+      if (stored) {
+        const parsedIncidents = JSON.parse(stored);
+        // Map incidents to include coordinates if available
+        const mappedIncidents = parsedIncidents.map((inc: any) => ({
+          id: inc.id,
+          title: inc.description || inc.type,
+          location: inc.location,
+          lat: inc.gpsLocation?.lat || 23.8103, // Default to Dhaka if no GPS
+          lng: inc.gpsLocation?.lng || 90.4125,
+          priority: inc.severity.toUpperCase(),
+          time: new Date(inc.timestamp).toLocaleTimeString(),
+          distance: '0 km',
+          type: inc.type,
+          status: inc.status || 'pending',
+          severity: inc.severity,
+        }));
+        setIncidents(mappedIncidents);
+      }
+    };
+    loadIncidents();
+    // Check for new incidents every 3 seconds
+    const interval = setInterval(loadIncidents, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Initialize Leaflet map
   useEffect(() => {
@@ -244,7 +273,7 @@ export default function MapPage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-white bg-opacity-20 px-4 py-2 rounded-lg">
             <Bell className="w-5 h-5" />
-            <span className="font-semibold">{incidents.filter(i => i.status === 'pending').length} Active</span>
+            <span className="font-semibold">{incidents.filter(i => i.status !== 'acknowledged').length} Active</span>
           </div>
         </div>
       </div>
@@ -309,11 +338,11 @@ export default function MapPage() {
         <div className="w-96 bg-white border-l border-gray-200 overflow-y-auto">
           <div className="p-4 border-b border-gray-200 bg-gray-50">
             <h2 className="text-lg font-bold text-gray-800">Active Incidents</h2>
-            <p className="text-sm text-gray-500">{incidents.length} total incidents</p>
+            <p className="text-sm text-gray-500">{incidents.filter(i => i.status !== 'acknowledged').length} active • {incidents.length} total incidents</p>
           </div>
 
           <div className="divide-y divide-gray-200">
-            {incidents.map((incident) => (
+            {incidents.filter(i => i.status !== 'acknowledged').map((incident) => (
               <div
                 key={incident.id}
                 className={`p-4 cursor-pointer transition-colors ${
