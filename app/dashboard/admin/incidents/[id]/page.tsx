@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { ChevronLeft, MapPin, Clock, User, Image as ImageIcon } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 
@@ -12,74 +12,39 @@ declare global {
   }
 }
 
-export default function IncidentDetailsPage({ params }: { params: { id: string } }) {
+export default function IncidentDetailsPage() {
   const router = useRouter();
+  const params = useParams();
+  const incidentId = params.id as string;
   const [status, setStatus] = useState('pending');
   const mapRef = useRef<any>(null);
   const mapInstanceRef = useRef<any>(null);
+  const [incident, setIncident] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock incident data - in real app, fetch from API based on params.id
-  const incidentData = {
-    'INC-001': {
-      id: 'INC-001',
-      title: 'Voter intimidation reported',
-      type: 'Intimidation',
-      severity: 'HIGH',
-      division: 'Dhaka',
-      location: 'Dhaka-10, Mirpur Polling Station',
-      coordinates: { lat: 23.8103, lng: 90.4125 },
-      description: 'Group of individuals preventing voters from entering polling station',
-      pollingCenterId: 'DHK-PS-19',
-      status: 'pending',
-      reportedTime: 'Dec 20, 2025, 3:15 PM',
-      timeAgo: '744 minutes ago',
-      reportedBy: 'Officer Rahman',
-      reportedByRole: 'Presiding Officer',
-      photoEvidence: '/images/incident-1.jpg',
-    },
-    'INC-002': {
-      id: 'INC-002',
-      title: 'Ballot box tampering attempt',
-      type: 'Tampering',
-      severity: 'CRITICAL',
-      division: 'Chittagong',
-      location: 'Chittagong-5, Agrabad Station',
-      coordinates: { lat: 22.3569, lng: 91.7832 },
-      description: 'Unauthorized person found ballot boxes',
-      pollingCenterId: 'CHT-PS-42',
-      status: 'responded',
-      reportedTime: 'Dec 20, 2025, 4:30 PM',
-      timeAgo: '630 minutes ago',
-      reportedBy: 'Officer Hassan',
-      reportedByRole: 'Presiding Officer',
-      photoEvidence: '/images/incident-2.jpg',
-    },
-    'INC-003': {
-      id: 'INC-003',
-      title: 'Technical malfunction - EVM',
-      type: 'Technical',
-      severity: 'MEDIUM',
-      division: 'Rajshahi',
-      location: 'Rajshahi-3, Boalia Thana',
-      coordinates: { lat: 24.3745, lng: 88.6042 },
-      description: 'Electronic voting machine stopped working, backup system activated',
-      pollingCenterId: 'RAJ-PS-08',
-      status: 'resolved',
-      reportedTime: 'Dec 20, 2025, 2:00 PM',
-      timeAgo: '875 minutes ago',
-      reportedBy: 'Officer Khan',
-      reportedByRole: 'Presiding Officer',
-      photoEvidence: '/images/incident-3.jpg',
-    },
-  };
-
-  // Get incident from mock data
-  type IncidentKey = 'INC-001' | 'INC-002' | 'INC-003';
-  const incident = incidentData[params.id as IncidentKey] || incidentData['INC-001'];
+  // Load incident from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('reportedIncidents');
+    if (stored) {
+      const incidents = JSON.parse(stored);
+      const found = incidents.find((inc: any) => inc.id === incidentId);
+      if (found) {
+        setIncident({
+          ...found,
+          severity: found.severity?.toUpperCase() || 'MEDIUM',
+          coordinates: found.gpsLocation || found.coordinates || { lat: 23.8103, lng: 90.4125 },
+          title: found.title || found.type || 'Incident',
+          reportedTime: new Date(found.timestamp).toLocaleString(),
+        });
+        setStatus(found.status || 'pending');
+      }
+    }
+    setLoading(false);
+  }, [incidentId]);
 
   // Initialize Leaflet map
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !incident) return;
 
     const loadLeaflet = async () => {
       if (!window.L) {
@@ -179,13 +144,13 @@ export default function IncidentDetailsPage({ params }: { params: { id: string }
     const stored = localStorage.getItem('reportedIncidents');
     if (stored) {
       const incidents = JSON.parse(stored);
-      const found = incidents.find((inc: any) => inc.id === params.id);
+      const found = incidents.find((inc: any) => inc.id === incidentId);
       if (found) {
         setFetchedIncidentData(found);
         setLawEnforcementNotes(found.lawEnforcementNotes || '');
       }
     }
-  }, [params.id]);
+  }, [incidentId]);
 
   useEffect(() => {
     try {
@@ -198,6 +163,44 @@ export default function IncidentDetailsPage({ params }: { params: { id: string }
       }
     } catch (e) {}
   }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading incident details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!incident) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-green-600 text-white px-6 py-4 flex items-center justify-between shadow-md">
+          <button
+            onClick={() => router.back()}
+            className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-all duration-200"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-xl font-semibold">Incident Details</h1>
+          <UserProfileControls role="admin" />
+        </div>
+
+        <div className="p-6 max-w-4xl mx-auto text-center">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Incident Not Found</h2>
+          <button
+            onClick={() => router.back()}
+            className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -282,7 +285,9 @@ export default function IncidentDetailsPage({ params }: { params: { id: string }
 
                 <div>
                   <p className="text-sm text-gray-600 font-medium mb-1">Polling Center ID</p>
-                  <p className="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded">{incident.pollingCenterId}</p>
+                  <p className="text-gray-900 font-mono bg-gray-50 px-3 py-2 rounded">
+                    {incident.pollingCenterId || incident.location || 'Not specified'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -303,43 +308,6 @@ export default function IncidentDetailsPage({ params }: { params: { id: string }
               </div>
             )}
 
-            {/* Update Status */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Update Status</h2>
-              
-              <div className="flex gap-3 flex-wrap">
-                <button
-                  onClick={() => handleStatusUpdate('pending')}
-                  className={`px-6 py-2 rounded font-medium transition-colors ${
-                    status === 'pending'
-                      ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
-                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                  }`}
-                >
-                  Mark as Pending
-                </button>
-                <button
-                  onClick={() => handleStatusUpdate('responded')}
-                  className={`px-6 py-2 rounded font-medium transition-colors ${
-                    status === 'responded'
-                      ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                  }`}
-                >
-                  Mark as Responded
-                </button>
-                <button
-                  onClick={() => handleStatusUpdate('resolved')}
-                  className={`px-6 py-2 rounded font-medium transition-colors ${
-                    status === 'resolved'
-                      ? 'bg-green-100 text-green-700 border border-green-300'
-                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
-                  }`}
-                >
-                  Mark as Resolved
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* Right Column - Location and Timeline */}
@@ -379,47 +347,11 @@ export default function IncidentDetailsPage({ params }: { params: { id: string }
                 <h2 className="text-lg font-semibold text-gray-900">Reported By</h2>
               </div>
               
-              <p className="text-gray-900 font-semibold">{incident.reportedBy}</p>
-              <p className="text-sm text-gray-500">{incident.reportedByRole}</p>
-            </div>
-
-            {/* Status Timeline */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-6">Status Timeline</h2>
-              
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className="w-4 h-4 rounded-full bg-green-500"></div>
-                    <div className="w-1 flex-1 bg-gray-300 my-2"></div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">Resolved</p>
-                    <p className="text-xs text-gray-500">Final status</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className="w-4 h-4 rounded-full bg-blue-500"></div>
-                    <div className="w-1 flex-1 bg-gray-300 my-2"></div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">Responded</p>
-                    <p className="text-xs text-gray-500">Under action</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">Pending</p>
-                    <p className="text-xs text-gray-500">Awaiting response</p>
-                  </div>
-                </div>
-              </div>
+              <p className="text-gray-900 font-semibold">{incident.reportedBy || 'Presiding Officer'}</p>
+              <p className="text-sm text-gray-500">{incident.reportedByRole || 'Presiding Officer'}</p>
+              {incident.pollingCenterId && (
+                <p className="text-xs text-gray-500 mt-2">Polling Center: {incident.pollingCenterId}</p>
+              )}
             </div>
           </div>
         </div>

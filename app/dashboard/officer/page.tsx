@@ -268,9 +268,13 @@ export default function OfficerDashboard() {
       
       // Save to localStorage so admin and police dashboards can see it
       const existingIncidents = JSON.parse(localStorage.getItem('reportedIncidents') || '[]');
+      const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
       const incidentToSave = {
         ...newIncident,
         gpsLocation: gpsLocation || { lat: 23.8103, lng: 90.4125 },
+        reportedBy: userInfo.name || 'Presiding Officer',
+        reportedByRole: 'Presiding Officer',
+        pollingCenterId: pollingCenterId,
       };
       localStorage.setItem('reportedIncidents', JSON.stringify([incidentToSave, ...existingIncidents]));
       

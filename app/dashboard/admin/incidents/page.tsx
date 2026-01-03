@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
-import { incidents as sharedIncidents } from '@/data/mockData';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, MapPin, AlertTriangle, Clock } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
@@ -24,9 +23,29 @@ export default function IncidentMapPage() {
   const mapRef = useRef<any>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const [incidents, setIncidents] = useState<any[]>([]);
 
-  // use shared mock data
-  const incidents = sharedIncidents;
+  // Load real incidents from localStorage
+  useEffect(() => {
+    const loadIncidents = () => {
+      const stored = localStorage.getItem('reportedIncidents');
+      if (stored) {
+        const parsedIncidents = JSON.parse(stored).map((inc: any) => ({
+          ...inc,
+          severity: inc.severity.toUpperCase(),
+          lat: inc.gpsLocation?.lat || inc.coordinates?.lat || 23.8103,
+          lng: inc.gpsLocation?.lng || inc.coordinates?.lng || 90.4125,
+          division: inc.location || inc.division || 'Unknown',
+        }));
+        setIncidents(parsedIncidents);
+      } else {
+        setIncidents([]);
+      }
+    };
+    loadIncidents();
+    const interval = setInterval(loadIncidents, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Filters + search
   const [filterSeverity, setFilterSeverity] = useState<'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'>('ALL');
@@ -75,6 +94,13 @@ export default function IncidentMapPage() {
       }
     };
   }, []);
+
+  // Update markers when incidents or filters change
+  useEffect(() => {
+    if (mapInstanceRef.current && window.L) {
+      updateMarkers();
+    }
+  }, [incidents, filterSeverity]);
 
   const updateMarkers = () => {
     if (!mapInstanceRef.current || !window.L) return;
