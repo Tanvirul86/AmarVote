@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, MapPin, Clock, User, Image as ImageIcon } from 'lucide-react';
-import UserProfileControls from '@/components/UserProfileControls';
+import UserProfileControls from '@/components/shared/UserProfileControls';
 
 // Import Leaflet types
 declare global {
@@ -171,6 +171,21 @@ export default function IncidentDetailsPage({ params }: { params: { id: string }
   };
 
   const [headerBg, setHeaderBg] = useState('bg-green-600');
+  const [lawEnforcementNotes, setLawEnforcementNotes] = useState<string>('');
+  const [fetchedIncidentData, setFetchedIncidentData] = useState<any>(null);
+
+  // Load law enforcement notes from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('reportedIncidents');
+    if (stored) {
+      const incidents = JSON.parse(stored);
+      const found = incidents.find((inc: any) => inc.id === params.id);
+      if (found) {
+        setFetchedIncidentData(found);
+        setLawEnforcementNotes(found.lawEnforcementNotes || '');
+      }
+    }
+  }, [params.id]);
 
   useEffect(() => {
     try {
@@ -271,6 +286,22 @@ export default function IncidentDetailsPage({ params }: { params: { id: string }
                 </div>
               </div>
             </div>
+
+            {/* Law Enforcement Response - If Available */}
+            {lawEnforcementNotes && (
+              <div className="bg-red-50 rounded-lg border-2 border-red-300 p-6">
+                <h2 className="text-lg font-semibold text-red-900 mb-4">Law Enforcement Response</h2>
+                <div className="bg-white rounded p-4 mb-3 border border-red-200">
+                  <p className="text-gray-900 whitespace-pre-wrap">{lawEnforcementNotes}</p>
+                </div>
+                {fetchedIncidentData?.acknowledgedAt && (
+                  <p className="text-xs text-red-700">
+                    <strong>Acknowledged:</strong> {new Date(fetchedIncidentData.acknowledgedAt).toLocaleString()}<br/>
+                    <strong>By:</strong> {fetchedIncidentData.acknowledgedBy || 'Law Enforcement Officer'}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Update Status */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">

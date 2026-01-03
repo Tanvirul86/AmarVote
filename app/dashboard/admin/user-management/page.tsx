@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import ShieldIcon from '@/components/ShieldIcon';
-import UserProfileControls from '@/components/UserProfileControls';
-import SlidingSidebar from '@/components/SlidingSidebar';
-import NotificationBell from '@/components/NotificationBell';
+import ShieldIcon from '@/components/shared/ShieldIcon';
+import UserProfileControls from '@/components/shared/UserProfileControls';
+import SlidingSidebar from '@/components/shared/SlidingSidebar';
+import NotificationBell from '@/components/shared/NotificationBell';
 import { getUsers, saveUsers, addUser, updateUserStatus, deleteUser, SystemUser } from '@/data/mockData';
 import { 
   LogOut, 

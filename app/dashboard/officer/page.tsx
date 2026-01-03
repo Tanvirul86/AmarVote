@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, User, LogOut, CheckCircle, Save, X, Camera, MapPin, Clock, Upload, FileText, Image, Trash2, Lock, ArrowLeft, ChevronDown } from 'lucide-react';
-import UserProfileControls from '@/components/UserProfileControls';
+import UserProfileControls from '@/components/shared/UserProfileControls';
 
 interface AttachedFile {
   id: string;

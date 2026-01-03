@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import SlidingSidebar from '@/components/SlidingSidebar';
-import NotificationBell from '@/components/NotificationBell';
+import SlidingSidebar from '@/components/shared/SlidingSidebar';
+import NotificationBell from '@/components/shared/NotificationBell';
 import { incidents as sharedIncidents } from '@/data/mockData';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, MapPin, AlertTriangle, Clock } from 'lucide-react';
-import UserProfileControls from '@/components/UserProfileControls';
-import ChartTooltip from '@/components/ChartTooltip';
+import UserProfileControls from '@/components/shared/UserProfileControls';
+import ChartTooltip from '@/components/shared/ChartTooltip';
 
 // Import Leaflet types
 declare global {

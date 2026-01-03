@@ -3,10 +3,10 @@
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
-import UserProfileControls from '@/components/UserProfileControls';
-import SlidingSidebar from '@/components/SlidingSidebar';
-import NotificationBell from '@/components/NotificationBell';
-import ChartTooltip from '@/components/ChartTooltip';
+import UserProfileControls from '@/components/shared/UserProfileControls';
+import SlidingSidebar from '@/components/shared/SlidingSidebar';
+import NotificationBell from '@/components/shared/NotificationBell';
+import ChartTooltip from '@/components/shared/ChartTooltip';
 import { logs as sharedLogs } from '@/data/mockData';
 
 const mockLogs = sharedLogs || [];

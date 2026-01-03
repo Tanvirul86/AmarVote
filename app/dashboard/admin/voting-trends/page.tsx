@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import UserProfileControls from '@/components/UserProfileControls';
-import SlidingSidebar from '@/components/SlidingSidebar';
-import NotificationBell from '@/components/NotificationBell';
-import ChartTooltip from '@/components/ChartTooltip';
-import ShieldIcon from '@/components/ShieldIcon';
+import UserProfileControls from '@/components/shared/UserProfileControls';
+import SlidingSidebar from '@/components/shared/SlidingSidebar';
+import NotificationBell from '@/components/shared/NotificationBell';
+import ChartTooltip from '@/components/shared/ChartTooltip';
+import ShieldIcon from '@/components/shared/ShieldIcon';
 
 const partyVotes = [
   { party: 'PA', votes: 15420, color: '#10b981' },

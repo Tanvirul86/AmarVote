@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import ShieldIcon from '@/components/ShieldIcon';
+import ShieldIcon from '@/components/shared/ShieldIcon';
 import { User, Lock, ArrowLeft, Users, AlertTriangle } from 'lucide-react';
 import { authenticateUser } from '@/data/mockData';
 

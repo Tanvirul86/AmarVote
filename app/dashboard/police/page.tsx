@@ -1,35 +1,169 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MapPin, LogOut, User, Navigation, CheckCircle, AlertTriangle, Clock, MapPinIcon, UserCog, X, Menu } from 'lucide-react';
-import UserProfileControls from '@/components/UserProfileControls';
+import UserProfileControls from '@/components/shared/UserProfileControls';
 
 export default function PoliceDashboard() {
   const router = useRouter();
+  const mapRef = useRef<any>(null);
+  const mapInstanceRef = useRef<any>(null);
   const [officerIncidents, setOfficerIncidents] = useState<any[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [allIncidentsList, setAllIncidentsList] = useState<any[]>([]);
   const [activeUnacknowledgedIncidents, setActiveUnacknowledgedIncidents] = useState<any[]>([]);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Load officer-reported incidents from localStorage
+  // Mock incidents data
+  const mockIncidentsData = [
+    {
+      id: 'INC-001',
+      severity: 'high',
+      title: 'Group of individuals preventing voters from entering polling station',
+      location: 'Azad Adda High School',
+      status: 'pending',
+      description: 'Multiple individuals blocking the entrance with aggressive behavior',
+      reportedBy: 'Officer Rahman',
+      reportedByRole: 'Presiding Officer',
+      timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
+      type: 'Intimidation',
+      pollingCenterId: 'DHK-PS-19',
+      coordinates: { lat: 23.8103, lng: 90.4125 },
+      gpsLocation: { lat: 23.8103, lng: 90.4125 },
+    },
+    {
+      id: 'INC-002',
+      severity: 'critical',
+      title: 'Unauthorized person found near ballot boxes',
+      location: 'Pathaiya',
+      status: 'pending',
+      description: 'Suspicious individual attempting to access ballot box storage',
+      reportedBy: 'Officer Khan',
+      reportedByRole: 'Presiding Officer',
+      timestamp: new Date(Date.now() - 60 * 60000).toISOString(),
+      type: 'Tampering',
+      pollingCenterId: 'CHT-PS-42',
+      coordinates: { lat: 22.3569, lng: 91.7832 },
+      gpsLocation: { lat: 22.3569, lng: 91.7832 },
+    },
+    {
+      id: 'INC-003',
+      severity: 'medium',
+      title: 'Electronic voting machine stopped working, backup system activated',
+      location: 'Radio Colony Model School',
+      status: 'responded',
+      description: 'EVM malfunction resolved by technical support',
+      reportedBy: 'Officer Ali',
+      reportedByRole: 'Presiding Officer',
+      timestamp: new Date(Date.now() - 2 * 60 * 60000).toISOString(),
+      type: 'Technical',
+      pollingCenterId: 'RAJ-PS-08',
+      coordinates: { lat: 24.3745, lng: 88.6042 },
+      gpsLocation: { lat: 24.3745, lng: 88.6042 },
+    },
+    {
+      id: 'INC-004',
+      severity: 'medium',
+      title: 'Large crowd gathering causing delays',
+      location: 'Banasree Model School',
+      status: 'resolved',
+      description: 'Crowd management completed, voting resumed',
+      reportedBy: 'Officer Hassan',
+      reportedByRole: 'Presiding Officer',
+      timestamp: new Date(Date.now() - 3 * 60 * 60000).toISOString(),
+      type: 'Crowd Control',
+      pollingCenterId: 'DHK-PS-25',
+      coordinates: { lat: 23.5, lng: 90.5 },
+      gpsLocation: { lat: 23.5, lng: 90.5 },
+    },
+    {
+      id: 'INC-005',
+      severity: 'high',
+      title: 'Voter intimidation attempts reported',
+      location: 'Shusujan Zirnat Ali High School',
+      status: 'pending',
+      description: 'Multiple voters reporting intimidation near polling center',
+      reportedBy: 'Officer Rahim',
+      reportedByRole: 'Presiding Officer',
+      timestamp: new Date(Date.now() - 90 * 60000).toISOString(),
+      type: 'Intimidation',
+      pollingCenterId: 'DHK-PS-30',
+      coordinates: { lat: 23.6, lng: 90.6 },
+      gpsLocation: { lat: 23.6, lng: 90.6 },
+    },
+    {
+      id: 'INC-006',
+      severity: 'low',
+      title: 'Lost and found - Voter ID document',
+      location: 'Mirza Golan Hafiz College',
+      status: 'resolved',
+      description: 'Voter ID document found and returned to owner',
+      reportedBy: 'Officer Hassan',
+      reportedByRole: 'Presiding Officer',
+      timestamp: new Date(Date.now() - 4 * 60 * 60000).toISOString(),
+      type: 'Lost & Found',
+      pollingCenterId: 'DHK-PS-35',
+      coordinates: { lat: 23.7, lng: 90.7 },
+      gpsLocation: { lat: 23.7, lng: 90.7 },
+    },
+    {
+      id: 'INC-007',
+      severity: 'critical',
+      title: 'Armed individuals spotted near polling center',
+      location: 'Savar Girls High School',
+      status: 'pending',
+      description: 'Armed suspect seen in vicinity of polling station',
+      reportedBy: 'Officer Ali',
+      reportedByRole: 'Presiding Officer',
+      timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
+      type: 'Security Threat',
+      pollingCenterId: 'DHK-PS-40',
+      coordinates: { lat: 23.8, lng: 90.8 },
+      gpsLocation: { lat: 23.8, lng: 90.8 },
+    },
+    {
+      id: 'INC-008',
+      severity: 'high',
+      title: 'Technical issue - Voter list system offline',
+      location: 'Sakot Central Hub',
+      status: 'acknowledged',
+      description: 'Voter verification system temporarily down',
+      reportedBy: 'System Admin',
+      reportedByRole: 'System Administrator',
+      timestamp: new Date(Date.now() - 5 * 60 * 60000).toISOString(),
+      type: 'Technical',
+      pollingCenterId: 'DHK-HUB-01',
+      coordinates: { lat: 23.9, lng: 90.9 },
+      gpsLocation: { lat: 23.9, lng: 90.9 },
+    },
+  ];
+
+  // Load officer-reported incidents from localStorage, fallback to mock data
   useEffect(() => {
     const loadIncidents = () => {
       const stored = localStorage.getItem('reportedIncidents');
-      if (stored) {
-        const incidents = JSON.parse(stored);
-        setOfficerIncidents(incidents);
-        
-        // Store all incidents in the history list
-        setAllIncidentsList(incidents);
-        
-        // Filter active unacknowledged incidents
-        const unacknowledged = incidents.filter((inc: any) => inc.status !== 'acknowledged');
-        setActiveUnacknowledgedIncidents(unacknowledged);
+      let incidents: any[] = [];
+      
+      if (stored && stored.length > 0) {
+        incidents = JSON.parse(stored);
+      } else {
+        // Use mock data if localStorage is empty
+        incidents = mockIncidentsData;
+        localStorage.setItem('reportedIncidents', JSON.stringify(incidents));
       }
+      
+      setOfficerIncidents(incidents);
+      
+      // Store all incidents in the history list
+      setAllIncidentsList(incidents);
+      
+      // Filter active unacknowledged incidents
+      const unacknowledged = incidents.filter((inc: any) => inc.status !== 'acknowledged');
+      setActiveUnacknowledgedIncidents(unacknowledged);
     };
     loadIncidents();
     const interval = setInterval(loadIncidents, 3000);
@@ -90,42 +224,56 @@ export default function PoliceDashboard() {
       </div>
 
       {/* Sliding Sidebar Menu */}
-      {sidebarOpen && (
-        <>
-          {/* Backdrop */}
+      <>
+        {/* Backdrop */}
+        {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300"
             onClick={() => setSidebarOpen(false)}
           ></div>
-          
-          {/* Sidebar */}
-          <div className="fixed inset-y-0 left-0 w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300">
-            <div className="p-4 flex items-center justify-between border-b border-gray-200 bg-white">
-              <h4 className="font-semibold text-lg">Menu</h4>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <nav className="p-4">
-              <Link
-                href="/dashboard/police/map"
-                onClick={() => setSidebarOpen(false)}
-                className="flex items-start gap-3 p-4 rounded-lg hover:bg-green-50 transition-colors border-2 border-green-500 bg-green-50"
-              >
-                <MapPin className="w-5 h-5 text-green-600 mt-1" />
-                <div>
-                  <div className="text-base font-semibold text-gray-900">View Map</div>
-                  <div className="text-sm text-gray-500">Live incidents</div>
-                </div>
-              </Link>
-            </nav>
+        )}
+        
+        {/* Sidebar */}
+        <div className={`fixed inset-y-0 left-0 w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+          <div className="p-4 flex items-center justify-between border-b border-gray-200 bg-white">
+            <h4 className="font-semibold text-lg">Menu</h4>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-        </>
-      )}
+
+          <nav className="p-4 space-y-2">
+            <Link
+              href="/dashboard/police/incidents"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-start gap-3 p-4 rounded-lg hover:bg-red-50 transition-colors border-2 border-red-500 bg-red-50"
+            >
+              <AlertTriangle className="w-5 h-5 text-red-600 mt-1" />
+              <div>
+                <div className="text-base font-semibold text-gray-900">View All Incidents</div>
+                <div className="text-sm text-gray-500">All reported incidents</div>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/police/map"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-start gap-3 p-4 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              <MapPin className="w-5 h-5 text-red-600 mt-1" />
+              <div>
+                <div className="text-base font-semibold text-gray-900">View Map</div>
+                <div className="text-sm text-gray-500">Live incidents</div>
+              </div>
+            </Link>
+          </nav>
+        </div>
+      </>
 
       <div className="flex">
         {/* Removed Static Sidebar - Now using sliding menu */}
@@ -307,89 +455,7 @@ export default function PoliceDashboard() {
             )}
           </div>
 
-          {/* All Incidents List Section */}
-          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-200 mb-6">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-200">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">All Incidents List</h2>
-                <p className="text-sm text-gray-500 mt-1">Complete history of all reported incidents</p>
-              </div>
-              <div className="bg-blue-50 text-blue-600 px-4 py-2 rounded-lg font-semibold">
-                {allIncidentsList.length} Total Incidents
-              </div>
-            </div>
 
-            {allIncidentsList.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <AlertTriangle className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                <p className="text-lg font-medium">No incidents reported yet</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b-2 border-gray-200">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Location</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Severity</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Time</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {allIncidentsList.map((incident: any) => {
-                      const incidentTime = new Date(incident.timestamp);
-                      const timeStr = incidentTime.toLocaleString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      });
-                      
-                      return (
-                        <tr key={incident.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{incident.id}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700 capitalize">{incident.type}</td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{incident.location}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-md ${
-                              incident.severity === 'critical' || incident.severity === 'high'
-                                ? 'bg-red-100 text-red-700'
-                                : incident.severity === 'medium'
-                                ? 'bg-orange-100 text-orange-700'
-                                : 'bg-blue-100 text-blue-700'
-                            }`}>
-                              {incident.severity.toUpperCase()}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-md ${
-                              incident.status === 'acknowledged'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-yellow-100 text-yellow-700'
-                            }`}>
-                              {incident.status === 'acknowledged' ? 'Acknowledged' : 'Pending'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">{timeStr}</td>
-                          <td className="px-4 py-3">
-                            <button
-                              onClick={() => handleViewDetails(incident)}
-                              className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                            >
-                              View Details
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
