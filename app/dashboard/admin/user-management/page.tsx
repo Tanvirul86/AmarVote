@@ -224,12 +224,13 @@ export default function UserManagementPage() {
       {/* Main Content */}
       <div className={`flex-1 transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'}`}>
         {/* Hero Header - Green */}
-        <header className="bg-green-600 text-white px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+        <header className="bg-green-600 text-white shadow-md">
+          <div className="flex items-center justify-between px-6 py-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => router.back()}
-                className="p-2 hover:bg-green-700 rounded transition-colors"
+                className="p-2 hover:bg-green-700 rounded-lg transition-colors"
+                aria-label="Go back"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
