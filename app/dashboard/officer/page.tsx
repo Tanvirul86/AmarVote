@@ -656,8 +656,6 @@ export default function OfficerDashboard() {
                     </p>
                   )}
                 </div>
-                  </p>
-                </div>
               </div>
 
               {/* Bottom Buttons */}
@@ -1146,8 +1144,6 @@ export default function OfficerDashboard() {
                     ✓ Your exact GPS location will be shared with law enforcement
                   </p>
                 )}
-              </div>
-                </p>
               </div>
             </div>
 

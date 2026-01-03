@@ -116,53 +116,16 @@ export default function AdminDashboard() {
     { party: 'PND', votes: 2800, color: '#6b7280' },
   ];
 
-  // Combine mock incidents with officer-reported incidents
-  const mockIncidents = [
-    {
-      id: 'INC-001',
-      severity: 'HIGH',
-      title: 'Group of individuals preventing voters from entering polling station',
-      location: 'Azad Adda High School',
-      status: 'pending',
-    },
-    {
-      id: 'INC-002',
-      severity: 'CRITICAL',
-      title: 'Unauthorized person found ballot boxes',
-      location: 'Pathaiya',
-      status: 'responded',
-    },
-    {
-      id: 'INC-003',
-      severity: 'MEDIUM',
-      title: 'Electronic voting machine stopped working, backup system activated',
-      location: 'Radio Colony Model School',
-      status: 'resolved',
-    },
-    {
-      id: 'INC-004',
-      severity: 'MEDIUM',
-      title: 'Large crowd gathering causing delays',
-      location: 'Banasree Model School',
-      status: 'resolved',
-    },
-  ];
-
-  // Combine mock incidents with officer-reported incidents
-  const recentIncidents = [
-    // Add officer-reported incidents first (newest)
-    ...officerIncidents.map(inc => ({
-      id: inc.id,
-      severity: inc.severity.toUpperCase(),
-      title: inc.description,
-      location: inc.location,
-      status: inc.status || 'pending',
-      isNew: inc.status !== 'acknowledged',
-      timestamp: inc.timestamp,
-    })),
-    // Then add mock incidents
-    ...mockIncidents,
-  ];
+  // Only show officer-reported incidents (real data only)
+  const recentIncidents = officerIncidents.map(inc => ({
+    id: inc.id,
+    severity: inc.severity.toUpperCase(),
+    title: inc.description,
+    location: inc.location,
+    status: inc.status || 'pending',
+    isNew: inc.status !== 'acknowledged',
+    timestamp: inc.timestamp,
+  }));
 
   // Count only active (non-acknowledged) incidents
   const activeIncidentsCount = officerIncidents.filter(inc => inc.status !== 'acknowledged').length;

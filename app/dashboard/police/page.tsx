@@ -17,132 +17,11 @@ export default function PoliceDashboard() {
   const [allIncidentsList, setAllIncidentsList] = useState<any[]>([]);
   const [activeUnacknowledgedIncidents, setActiveUnacknowledgedIncidents] = useState<any[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [showAcknowledgeModal, setShowAcknowledgeModal] = useState(false);
+  const [acknowledgeIncidentId, setAcknowledgeIncidentId] = useState<string | null>(null);
+  const [handlingNotes, setHandlingNotes] = useState('');
 
-  // Mock incidents data
-  const mockIncidentsData = [
-    {
-      id: 'INC-001',
-      severity: 'high',
-      title: 'Group of individuals preventing voters from entering polling station',
-      location: 'Azad Adda High School',
-      status: 'pending',
-      description: 'Multiple individuals blocking the entrance with aggressive behavior',
-      reportedBy: 'Officer Rahman',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
-      type: 'Intimidation',
-      pollingCenterId: 'DHK-PS-19',
-      coordinates: { lat: 23.8103, lng: 90.4125 },
-      gpsLocation: { lat: 23.8103, lng: 90.4125 },
-    },
-    {
-      id: 'INC-002',
-      severity: 'critical',
-      title: 'Unauthorized person found near ballot boxes',
-      location: 'Pathaiya',
-      status: 'pending',
-      description: 'Suspicious individual attempting to access ballot box storage',
-      reportedBy: 'Officer Khan',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 60 * 60000).toISOString(),
-      type: 'Tampering',
-      pollingCenterId: 'CHT-PS-42',
-      coordinates: { lat: 22.3569, lng: 91.7832 },
-      gpsLocation: { lat: 22.3569, lng: 91.7832 },
-    },
-    {
-      id: 'INC-003',
-      severity: 'medium',
-      title: 'Electronic voting machine stopped working, backup system activated',
-      location: 'Radio Colony Model School',
-      status: 'responded',
-      description: 'EVM malfunction resolved by technical support',
-      reportedBy: 'Officer Ali',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 2 * 60 * 60000).toISOString(),
-      type: 'Technical',
-      pollingCenterId: 'RAJ-PS-08',
-      coordinates: { lat: 24.3745, lng: 88.6042 },
-      gpsLocation: { lat: 24.3745, lng: 88.6042 },
-    },
-    {
-      id: 'INC-004',
-      severity: 'medium',
-      title: 'Large crowd gathering causing delays',
-      location: 'Banasree Model School',
-      status: 'resolved',
-      description: 'Crowd management completed, voting resumed',
-      reportedBy: 'Officer Hassan',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 3 * 60 * 60000).toISOString(),
-      type: 'Crowd Control',
-      pollingCenterId: 'DHK-PS-25',
-      coordinates: { lat: 23.5, lng: 90.5 },
-      gpsLocation: { lat: 23.5, lng: 90.5 },
-    },
-    {
-      id: 'INC-005',
-      severity: 'high',
-      title: 'Voter intimidation attempts reported',
-      location: 'Shusujan Zirnat Ali High School',
-      status: 'pending',
-      description: 'Multiple voters reporting intimidation near polling center',
-      reportedBy: 'Officer Rahim',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 90 * 60000).toISOString(),
-      type: 'Intimidation',
-      pollingCenterId: 'DHK-PS-30',
-      coordinates: { lat: 23.6, lng: 90.6 },
-      gpsLocation: { lat: 23.6, lng: 90.6 },
-    },
-    {
-      id: 'INC-006',
-      severity: 'low',
-      title: 'Lost and found - Voter ID document',
-      location: 'Mirza Golan Hafiz College',
-      status: 'resolved',
-      description: 'Voter ID document found and returned to owner',
-      reportedBy: 'Officer Hassan',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 4 * 60 * 60000).toISOString(),
-      type: 'Lost & Found',
-      pollingCenterId: 'DHK-PS-35',
-      coordinates: { lat: 23.7, lng: 90.7 },
-      gpsLocation: { lat: 23.7, lng: 90.7 },
-    },
-    {
-      id: 'INC-007',
-      severity: 'critical',
-      title: 'Armed individuals spotted near polling center',
-      location: 'Savar Girls High School',
-      status: 'pending',
-      description: 'Armed suspect seen in vicinity of polling station',
-      reportedBy: 'Officer Ali',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-      type: 'Security Threat',
-      pollingCenterId: 'DHK-PS-40',
-      coordinates: { lat: 23.8, lng: 90.8 },
-      gpsLocation: { lat: 23.8, lng: 90.8 },
-    },
-    {
-      id: 'INC-008',
-      severity: 'high',
-      title: 'Technical issue - Voter list system offline',
-      location: 'Sakot Central Hub',
-      status: 'acknowledged',
-      description: 'Voter verification system temporarily down',
-      reportedBy: 'System Admin',
-      reportedByRole: 'System Administrator',
-      timestamp: new Date(Date.now() - 5 * 60 * 60000).toISOString(),
-      type: 'Technical',
-      pollingCenterId: 'DHK-HUB-01',
-      coordinates: { lat: 23.9, lng: 90.9 },
-      gpsLocation: { lat: 23.9, lng: 90.9 },
-    },
-  ];
-
-  // Load officer-reported incidents from localStorage, fallback to mock data
+  // Load officer-reported incidents from localStorage (only real data)
   useEffect(() => {
     const loadIncidents = () => {
       const stored = localStorage.getItem('reportedIncidents');
@@ -154,10 +33,6 @@ export default function PoliceDashboard() {
           gpsLocation: inc.gpsLocation || { lat: 23.8103, lng: 90.4125 },
           coordinates: inc.gpsLocation || inc.coordinates || { lat: 23.8103, lng: 90.4125 },
         }));
-      } else {
-        // Use mock data if localStorage is empty
-        incidents = mockIncidentsData;
-        localStorage.setItem('reportedIncidents', JSON.stringify(incidents));
       }
       
       setOfficerIncidents(incidents);
@@ -179,14 +54,42 @@ export default function PoliceDashboard() {
   };
 
   const handleAcknowledge = (incidentId: string) => {
+    setAcknowledgeIncidentId(incidentId);
+    setHandlingNotes('');
+    setShowAcknowledgeModal(true);
+  };
+
+  const handleConfirmAcknowledge = () => {
+    if (!acknowledgeIncidentId) return;
+
+    if (handlingNotes.trim().length === 0) {
+      alert('Please add handling notes before acknowledging');
+      return;
+    }
+
+    const wordCount = handlingNotes.trim().split(/\s+/).filter(word => word.length > 0).length;
+    if (wordCount > 100) {
+      alert('Handling notes must be 100 words or less');
+      return;
+    }
+
     const updatedIncidents = officerIncidents.map(incident => {
-      if (incident.id === incidentId) {
-        return { ...incident, status: 'acknowledged', acknowledgedAt: new Date().toISOString() };
+      if (incident.id === acknowledgeIncidentId) {
+        return { 
+          ...incident, 
+          status: 'acknowledged', 
+          acknowledgedAt: new Date().toISOString(),
+          lawEnforcementNotes: handlingNotes,
+          acknowledgedBy: 'Law Enforcement Officer'
+        };
       }
       return incident;
     });
     setOfficerIncidents(updatedIncidents);
     localStorage.setItem('reportedIncidents', JSON.stringify(updatedIncidents));
+    setShowAcknowledgeModal(false);
+    setAcknowledgeIncidentId(null);
+    setHandlingNotes('');
     alert('Incident acknowledged successfully!');
   };
 
@@ -442,7 +345,7 @@ export default function PoliceDashboard() {
                           className="bg-green-600 text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 shadow-sm"
                         >
                           <CheckCircle className="w-4 h-4" />
-                          Acknowledge
+                          Acknowledge & Add Notes
                         </button>
                         <button
                           onClick={() => handleViewDetails(incident)}
@@ -545,40 +448,49 @@ export default function PoliceDashboard() {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Attachments ({selectedIncident.attachments.length})</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    {selectedIncident.attachments.map((file: any) => (
-                      <div key={file.id} className="border border-gray-200 rounded-lg overflow-hidden hover:border-blue-400 transition-colors group">
-                        {file.type.startsWith('image/') ? (
-                          <div className="relative">
-                            <img 
-                              src={file.url} 
-                              alt={file.name}
-                              className="w-full h-48 object-cover"
-                            />
-                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity flex items-center justify-center">
-                              <button
-                                onClick={() => window.open(file.url, '_blank')}
-                                className="opacity-0 group-hover:opacity-100 bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
-                              >
-                                View Full Size
-                              </button>
+                    {selectedIncident.attachments.map((file: any, index: number) => {
+                      // Handle both object format and string format
+                      const isObject = typeof file === 'object' && file !== null;
+                      const imageUrl = isObject ? file.url : file;
+                      const fileName = isObject ? file.name : `Evidence ${index + 1}`;
+                      const fileSize = isObject ? file.size : null;
+                      const fileType = isObject ? file.type : 'image/';
+                      
+                      return (
+                        <div key={isObject ? file.id : index} className="border border-gray-200 rounded-lg overflow-hidden hover:border-blue-400 transition-colors group">
+                          {(!isObject || fileType.startsWith('image/')) ? (
+                            <div className="relative">
+                              <img 
+                                src={imageUrl} 
+                                alt={fileName}
+                                className="w-full h-48 object-cover"
+                              />
+                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity flex items-center justify-center">
+                                <button
+                                  onClick={() => window.open(imageUrl, '_blank')}
+                                  className="opacity-0 group-hover:opacity-100 bg-white text-gray-900 px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
+                                >
+                                  View Full Size
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="h-48 bg-gray-100 flex items-center justify-center">
-                            <div className="text-center">
-                              <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                              </svg>
-                              <p className="text-xs text-gray-500">PDF Document</p>
+                          ) : (
+                            <div className="h-48 bg-gray-100 flex items-center justify-center">
+                              <div className="text-center">
+                                <svg className="w-12 h-12 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                <p className="text-xs text-gray-500">PDF Document</p>
+                              </div>
                             </div>
+                          )}
+                          <div className="p-3 bg-white">
+                            <p className="font-medium text-sm text-gray-900 truncate">{fileName}</p>
+                            {fileSize && <p className="text-xs text-gray-500 mt-1">{(fileSize / 1024).toFixed(1)} KB</p>}
                           </div>
-                        )}
-                        <div className="p-3 bg-white">
-                          <p className="font-medium text-sm text-gray-900 truncate">{file.name}</p>
-                          <p className="text-xs text-gray-500 mt-1">{(file.size / 1024).toFixed(1)} KB</p>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -596,8 +508,8 @@ export default function PoliceDashboard() {
                 </button>
                 <button
                   onClick={() => {
-                    handleAcknowledge(selectedIncident.id);
                     setShowDetailsModal(false);
+                    handleAcknowledge(selectedIncident.id);
                   }}
                   disabled={selectedIncident.status === 'acknowledged'}
                   className={`flex-1 font-semibold px-5 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 ${
@@ -607,12 +519,86 @@ export default function PoliceDashboard() {
                   }`}
                 >
                   <CheckCircle className="w-5 h-5" />
-                  {selectedIncident.status === 'acknowledged' ? 'Acknowledged' : 'Acknowledge'}
+                  {selectedIncident.status === 'acknowledged' ? 'Acknowledged' : 'Acknowledge & Add Notes'}
                 </button>
               </div>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Acknowledge Modal */}
+      {showAcknowledgeModal && (
+        <>
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+            onClick={() => setShowAcknowledgeModal(false)}
+          ></div>
+
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg max-w-2xl w-full max-h-96 overflow-y-auto shadow-2xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Acknowledge Incident</h2>
+                <button
+                  onClick={() => setShowAcknowledgeModal(false)}
+                  className="p-1 hover:bg-gray-100 rounded transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-900">
+                  <strong>Incident ID:</strong> {acknowledgeIncidentId}
+                </p>
+                <p className="text-sm text-blue-700 mt-1">
+                  Please describe how you handled this incident or what action was taken.
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Handling Notes (Max 100 words)
+                  <span className="text-xs text-gray-500 ml-2">
+                    {handlingNotes.trim().split(/\s+/).filter(word => word.length > 0).length > 0 && 
+                      `${handlingNotes.trim().split(/\s+/).filter(word => word.length > 0).length}/100 words`}
+                  </span>
+                </label>
+                <textarea
+                  value={handlingNotes}
+                  onChange={(e) => setHandlingNotes(e.target.value)}
+                  placeholder="Describe the actions taken, resolution, or current status of handling this incident..."
+                  maxLength={400}
+                  rows={5}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
+                    handlingNotes.trim().split(/\s+/).filter(word => word.length > 0).length > 100
+                      ? 'border-red-300 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-red-500'
+                  }`}
+                />
+                {handlingNotes.trim().split(/\s+/).filter(word => word.length > 0).length > 100 && (
+                  <p className="text-xs text-red-600 mt-1">⚠️ Notes exceed 100 words limit</p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowAcknowledgeModal(false)}
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold py-2 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmAcknowledge}
+                  disabled={handlingNotes.trim().split(/\s+/).filter(word => word.length > 0).length > 100 || handlingNotes.trim().length === 0}
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-2 rounded-lg transition-colors"
+                >
+                  Acknowledge & Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
       )}
       
       <style jsx global>{`

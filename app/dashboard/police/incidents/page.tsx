@@ -11,93 +11,9 @@ export default function PoliceIncidentsPage() {
   const [incidents, setIncidents] = useState<any[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'pending' | 'responded' | 'resolved' | 'acknowledged'>('ALL');
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'active' | 'acknowledged'>('ALL');
 
-  // Mock incidents data similar to Admin Dashboard
-  const mockIncidents = [
-    {
-      id: 'INC-001',
-      severity: 'HIGH',
-      title: 'Group of individuals preventing voters from entering polling station',
-      location: 'Azad Adda High School',
-      status: 'pending',
-      description: 'Multiple individuals blocking the entrance with aggressive behavior',
-      reportedBy: 'Officer Rahman',
-      timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
-    },
-    {
-      id: 'INC-002',
-      severity: 'CRITICAL',
-      title: 'Unauthorized person found ballot boxes',
-      location: 'Pathaiya',
-      status: 'responded',
-      description: 'Suspicious individual attempting to access ballot box storage',
-      reportedBy: 'Officer Khan',
-      timestamp: new Date(Date.now() - 60 * 60000).toISOString(),
-    },
-    {
-      id: 'INC-003',
-      severity: 'MEDIUM',
-      title: 'Electronic voting machine stopped working, backup system activated',
-      location: 'Radio Colony Model School',
-      status: 'resolved',
-      description: 'EVM malfunction resolved by technical support',
-      reportedBy: 'Officer Ali',
-      timestamp: new Date(Date.now() - 2 * 60 * 60000).toISOString(),
-    },
-    {
-      id: 'INC-004',
-      severity: 'MEDIUM',
-      title: 'Large crowd gathering causing delays',
-      location: 'Banasree Model School',
-      status: 'resolved',
-      description: 'Crowd management completed, voting resumed',
-      reportedBy: 'Officer Hassan',
-      timestamp: new Date(Date.now() - 3 * 60 * 60000).toISOString(),
-    },
-    {
-      id: 'INC-005',
-      severity: 'HIGH',
-      title: 'Voter intimidation attempts reported',
-      location: 'Shusujan Zirnat Ali High School',
-      status: 'responded',
-      description: 'Multiple voters reporting intimidation near polling center',
-      reportedBy: 'Officer Rahim',
-      timestamp: new Date(Date.now() - 90 * 60000).toISOString(),
-    },
-    {
-      id: 'INC-006',
-      severity: 'LOW',
-      title: 'Lost and found - Voter ID document',
-      location: 'Mirza Golan Hafiz College',
-      status: 'resolved',
-      description: 'Voter ID document found and returned to owner',
-      reportedBy: 'Officer Hassan',
-      timestamp: new Date(Date.now() - 4 * 60 * 60000).toISOString(),
-    },
-    {
-      id: 'INC-007',
-      severity: 'CRITICAL',
-      title: 'Armed individuals spotted near polling center',
-      location: 'Savar Girls High School',
-      status: 'pending',
-      description: 'Armed suspect seen in vicinity of polling station',
-      reportedBy: 'Officer Ali',
-      timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-    },
-    {
-      id: 'INC-008',
-      severity: 'HIGH',
-      title: 'Technical issue - Voter list system offline',
-      location: 'Sakot Central Hub',
-      status: 'acknowledged',
-      description: 'Voter verification system temporarily down',
-      reportedBy: 'System Admin',
-      timestamp: new Date(Date.now() - 5 * 60 * 60000).toISOString(),
-    },
-  ];
-
-  // Load incidents from localStorage and combine with mock data
+  // Load incidents from localStorage (only real officer reports)
   useEffect(() => {
     const loadIncidents = () => {
       const stored = localStorage.getItem('reportedIncidents');
@@ -106,9 +22,8 @@ export default function PoliceIncidentsPage() {
         gpsLocation: inc.gpsLocation || { lat: 23.8103, lng: 90.4125 },
       })) : [];
       
-      // Combine officer-reported incidents with mock incidents
-      const combined = [...officerIncidents, ...mockIncidents];
-      setIncidents(combined);
+      // Only show real officer-reported incidents
+      setIncidents(officerIncidents);
     };
     loadIncidents();
 
@@ -118,6 +33,8 @@ export default function PoliceIncidentsPage() {
 
   const filteredIncidents = filterStatus === 'ALL' 
     ? incidents 
+    : filterStatus === 'active'
+    ? incidents.filter(inc => inc.status !== 'acknowledged')
     : incidents.filter(inc => inc.status === filterStatus);
 
   const getSeverityColor = (severity: string) => {
@@ -206,7 +123,7 @@ export default function PoliceIncidentsPage() {
       <div className="p-6 max-w-6xl mx-auto">
         {/* Filter Buttons */}
         <div className="mb-6 flex flex-wrap gap-2">
-          {['ALL', 'pending', 'responded', 'resolved', 'acknowledged'].map((status) => (
+          {['ALL', 'active', 'acknowledged'].map((status) => (
             <button
               key={status}
               onClick={() => setFilterStatus(status as any)}
@@ -218,41 +135,25 @@ export default function PoliceIncidentsPage() {
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
               <span className="ml-2 text-sm opacity-75">
-                ({incidents.filter(inc => status === 'ALL' || inc.status === status).length})
+                ({status === 'ALL' 
+                  ? incidents.length 
+                  : status === 'active' 
+                  ? incidents.filter(inc => inc.status !== 'acknowledged').length
+                  : incidents.filter(inc => inc.status === status).length})
               </span>
             </button>
           ))}
         </div>
 
         {/* Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className="bg-white rounded-lg border border-red-200 p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-red-600">{incidents.filter(inc => inc.status === 'pending').length}</p>
+                <p className="text-sm text-gray-600">Active</p>
+                <p className="text-2xl font-bold text-red-600">{incidents.filter(inc => inc.status !== 'acknowledged').length}</p>
               </div>
               <AlertTriangle className="w-8 h-8 text-red-600 opacity-30" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-orange-200 p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Responded</p>
-                <p className="text-2xl font-bold text-orange-600">{incidents.filter(inc => inc.status === 'responded').length}</p>
-              </div>
-              <Clock className="w-8 h-8 text-orange-600 opacity-30" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-blue-200 p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Resolved</p>
-                <p className="text-2xl font-bold text-blue-600">{incidents.filter(inc => inc.status === 'resolved').length}</p>
-              </div>
-              <CheckCircle className="w-8 h-8 text-blue-600 opacity-30" />
             </div>
           </div>
 

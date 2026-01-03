@@ -11,46 +11,6 @@ declare global {
   }
 }
 
-// Mock incidents data with coordinates
-const mockIncidents = [
-  {
-    id: 'INC-001',
-    title: 'Voter intimidation reported',
-    location: 'Dhaka-10, Mirpur Polling Station',
-    lat: 23.8223,
-    lng: 90.3654,
-    priority: 'HIGH',
-    time: '15:15:00',
-    distance: '1.6 km',
-    type: 'Intimidation',
-    status: 'pending'
-  },
-  {
-    id: 'INC-002',
-    title: 'Ballot box tampering attempt',
-    location: 'Dhaka-8, Mohammadpur Station',
-    lat: 23.7679,
-    lng: 90.3577,
-    priority: 'HIGH',
-    time: '14:30:00',
-    distance: '3.2 km',
-    type: 'Tampering',
-    status: 'pending'
-  },
-  {
-    id: 'INC-003',
-    title: 'Crowd control issue',
-    location: 'Dhaka-5, Dhanmondi Station',
-    lat: 23.7461,
-    lng: 90.3742,
-    priority: 'MEDIUM',
-    time: '13:45:00',
-    distance: '4.5 km',
-    type: 'Crowd Control',
-    status: 'acknowledged'
-  }
-];
-
 export default function MapPage() {
   const [incidents, setIncidents] = useState<any[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
@@ -63,30 +23,44 @@ export default function MapPage() {
   useEffect(() => {
     const loadIncidents = () => {
       const stored = localStorage.getItem('reportedIncidents');
-      if (stored) {
-        const parsedIncidents = JSON.parse(stored);
-        // Map incidents to include coordinates if available
-        const mappedIncidents = parsedIncidents.map((inc: any) => {
-          // Ensure GPS location is properly extracted
-          const lat = inc.gpsLocation?.lat || 23.8103;
-          const lng = inc.gpsLocation?.lng || 90.4125;
-          
-          return {
-            id: inc.id,
-            title: inc.description || inc.type,
-            location: inc.location,
-            lat: lat,
-            lng: lng,
-            priority: inc.severity.toUpperCase(),
-            time: new Date(inc.timestamp).toLocaleTimeString(),
-            distance: '0 km',
-            type: inc.type,
-            status: inc.status || 'pending',
-            severity: inc.severity,
-            gpsLocation: { lat, lng },
-          };
-        });
-        setIncidents(mappedIncidents);
+      if (stored && stored !== '[]') {
+        try {
+          const parsedIncidents = JSON.parse(stored);
+          // Only map incidents if there are any
+          if (parsedIncidents && parsedIncidents.length > 0) {
+            // Filter out acknowledged incidents - only show active incidents
+            const activeIncidents = parsedIncidents.filter((inc: any) => inc.status !== 'acknowledged');
+            
+            const mappedIncidents = activeIncidents.map((inc: any) => {
+              // Ensure GPS location is properly extracted
+              const lat = inc.gpsLocation?.lat || 23.8103;
+              const lng = inc.gpsLocation?.lng || 90.4125;
+              
+              return {
+                id: inc.id,
+                title: inc.description || inc.type,
+                location: inc.location,
+                lat: lat,
+                lng: lng,
+                priority: inc.severity.toUpperCase(),
+                time: new Date(inc.timestamp).toLocaleTimeString(),
+                distance: '0 km',
+                type: inc.type,
+                status: inc.status || 'pending',
+                severity: inc.severity,
+                gpsLocation: { lat, lng },
+              };
+            });
+            setIncidents(mappedIncidents);
+          } else {
+            setIncidents([]);
+          }
+        } catch (e) {
+          console.error('Error parsing incidents:', e);
+          setIncidents([]);
+        }
+      } else {
+        setIncidents([]);
       }
     };
     loadIncidents();
@@ -229,33 +203,6 @@ export default function MapPage() {
     });
   };
 
-  // Simulate real-time incident updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Simulate a new incident every 30 seconds
-      const newIncident = {
-        id: `INC-${String(incidents.length + 1).padStart(3, '0')}`,
-        title: 'New incident reported',
-        location: 'Dhaka-12, Tejgaon Station',
-        lat: 23.7500 + (Math.random() - 0.5) * 0.1,
-        lng: 90.3900 + (Math.random() - 0.5) * 0.1,
-        priority: Math.random() > 0.5 ? 'HIGH' : 'MEDIUM',
-        time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-        distance: `${(Math.random() * 5 + 1).toFixed(1)} km`,
-        type: ['Intimidation', 'Tampering', 'Crowd Control'][Math.floor(Math.random() * 3)],
-        status: 'pending'
-      };
-      
-      setIncidents(prev => [newIncident, ...prev]);
-      setNotification(newIncident);
-      
-      // Auto-hide notification after 5 seconds
-      setTimeout(() => setNotification(null), 5000);
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
-  }, [incidents.length]);
-
   const getPriorityColor = (priority: string) => {
     return priority === 'HIGH' ? 'bg-red-600' : 'bg-yellow-600';
   };
@@ -299,7 +246,7 @@ export default function MapPage() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 bg-white bg-opacity-20 px-4 py-2 rounded-lg">
             <Bell className="w-5 h-5" />
-            <span className="font-semibold">{incidents.filter(i => i.status !== 'acknowledged').length} Active</span>
+            <span className="font-semibold">{incidents.length} Active</span>
           </div>
         </div>
       </div>
@@ -364,64 +311,72 @@ export default function MapPage() {
         <div className="w-96 bg-white border-l border-gray-200 overflow-y-auto">
           <div className="p-4 border-b border-gray-200 bg-gray-50">
             <h2 className="text-lg font-bold text-gray-800">Active Incidents</h2>
-            <p className="text-sm text-gray-500">{incidents.filter(i => i.status !== 'acknowledged').length} active • {incidents.length} total incidents</p>
+            <p className="text-sm text-gray-500">{incidents.length} active incidents</p>
           </div>
 
           <div className="divide-y divide-gray-200">
-            {incidents.filter(i => i.status !== 'acknowledged').map((incident) => (
-              <div
-                key={incident.id}
-                className={`p-4 transition-colors ${
-                  selectedIncident?.id === incident.id ? 'bg-blue-50' : 'hover:bg-gray-50'
-                } ${getPriorityBorderColor(incident.priority)} border-l-4`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`w-8 h-8 ${getPriorityColor(incident.priority)} rounded-full flex items-center justify-center flex-shrink-0`}>
-                    <AlertTriangle className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`${getPriorityColor(incident.priority)} text-white text-xs font-bold px-2 py-0.5 rounded`}>
-                        {incident.priority}
-                      </span>
-                      <span className="text-xs text-gray-500">{incident.id}</span>
+            {incidents.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <AlertTriangle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No Active Incidents</p>
+                <p className="text-sm mt-1">All incidents have been acknowledged</p>
+              </div>
+            ) : (
+              incidents.map((incident) => (
+                <div
+                  key={incident.id}
+                  className={`p-4 transition-colors ${
+                    selectedIncident?.id === incident.id ? 'bg-blue-50' : 'hover:bg-gray-50'
+                  } ${getPriorityBorderColor(incident.priority)} border-l-4`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-8 h-8 ${getPriorityColor(incident.priority)} rounded-full flex items-center justify-center flex-shrink-0`}>
+                      <AlertTriangle className="w-4 h-4 text-white" />
                     </div>
-                    <h3 className="font-semibold text-gray-900 text-sm mb-1">{incident.title}</h3>
-                    <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
-                      <MapPin className="w-3 h-3" />
-                      <span className="truncate">{incident.location}</span>
-                    </div>
-                    {incident.gpsLocation && (
-                      <div className="text-xs text-gray-400 mb-2">
-                        GPS: {incident.gpsLocation.lat.toFixed(4)}, {incident.gpsLocation.lng.toFixed(4)}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`${getPriorityColor(incident.priority)} text-white text-xs font-bold px-2 py-0.5 rounded`}>
+                          {incident.priority}
+                        </span>
+                        <span className="text-xs text-gray-500">{incident.id}</span>
                       </div>
-                    )}
-                    <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
-                      <div className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        <span>{incident.time}</span>
+                      <h3 className="font-semibold text-gray-900 text-sm mb-1">{incident.title}</h3>
+                      <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+                        <MapPin className="w-3 h-3" />
+                        <span className="truncate">{incident.location}</span>
                       </div>
-                      <span>•</span>
-                      <span>{incident.distance} away</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => centerMapOnIncident(incident)}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-1.5 px-3 rounded transition-colors"
-                      >
-                        View on Map
-                      </button>
-                      <button
-                        onClick={() => handleNavigateToIncident(incident)}
-                        className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-1.5 px-3 rounded transition-colors"
-                      >
-                        Navigate
-                      </button>
+                      {incident.gpsLocation && (
+                        <div className="text-xs text-gray-400 mb-2">
+                          GPS: {incident.gpsLocation.lat.toFixed(4)}, {incident.gpsLocation.lng.toFixed(4)}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3 text-xs text-gray-500 mb-2">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          <span>{incident.time}</span>
+                        </div>
+                        <span>•</span>
+                        <span>{incident.distance} away</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => centerMapOnIncident(incident)}
+                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-1.5 px-3 rounded transition-colors"
+                        >
+                          View on Map
+                        </button>
+                        <button
+                          onClick={() => handleNavigateToIncident(incident)}
+                          className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-1.5 px-3 rounded transition-colors"
+                        >
+                          Navigate
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

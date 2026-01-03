@@ -17,124 +17,8 @@ export default function PoliceIncidentDetailsPage() {
   const [hasAcknowledged, setHasAcknowledged] = useState(false);
   const [fetchedIncidentData, setFetchedIncidentData] = useState<any>(null);
 
-  // Mock incidents data
-  const mockIncidentsData: Record<string, any> = {
-    'INC-001': {
-      id: 'INC-001',
-      severity: 'HIGH',
-      title: 'Group of individuals preventing voters from entering polling station',
-      location: 'Azad Adda High School',
-      status: 'pending',
-      description: 'Multiple individuals blocking the entrance with aggressive behavior',
-      reportedBy: 'Officer Rahman',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 30 * 60000).toISOString(),
-      type: 'Intimidation',
-      pollingCenterId: 'DHK-PS-19',
-      coordinates: { lat: 23.8103, lng: 90.4125 },
-    },
-    'INC-002': {
-      id: 'INC-002',
-      severity: 'CRITICAL',
-      title: 'Unauthorized person found ballot boxes',
-      location: 'Pathaiya',
-      status: 'responded',
-      description: 'Suspicious individual attempting to access ballot box storage',
-      reportedBy: 'Officer Khan',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 60 * 60000).toISOString(),
-      type: 'Tampering',
-      pollingCenterId: 'CHT-PS-42',
-      coordinates: { lat: 22.3569, lng: 91.7832 },
-    },
-    'INC-003': {
-      id: 'INC-003',
-      severity: 'MEDIUM',
-      title: 'Electronic voting machine stopped working, backup system activated',
-      location: 'Radio Colony Model School',
-      status: 'resolved',
-      description: 'EVM malfunction resolved by technical support',
-      reportedBy: 'Officer Ali',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 2 * 60 * 60000).toISOString(),
-      type: 'Technical',
-      pollingCenterId: 'RAJ-PS-08',
-      coordinates: { lat: 24.3745, lng: 88.6042 },
-    },
-    'INC-004': {
-      id: 'INC-004',
-      severity: 'MEDIUM',
-      title: 'Large crowd gathering causing delays',
-      location: 'Banasree Model School',
-      status: 'resolved',
-      description: 'Crowd management completed, voting resumed',
-      reportedBy: 'Officer Hassan',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 3 * 60 * 60000).toISOString(),
-      type: 'Crowd Control',
-      pollingCenterId: 'DHK-PS-25',
-      coordinates: { lat: 23.5, lng: 90.5 },
-    },
-    'INC-005': {
-      id: 'INC-005',
-      severity: 'HIGH',
-      title: 'Voter intimidation attempts reported',
-      location: 'Shusujan Zirnat Ali High School',
-      status: 'responded',
-      description: 'Multiple voters reporting intimidation near polling center',
-      reportedBy: 'Officer Rahim',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 90 * 60000).toISOString(),
-      type: 'Intimidation',
-      pollingCenterId: 'DHK-PS-30',
-      coordinates: { lat: 23.6, lng: 90.6 },
-    },
-    'INC-006': {
-      id: 'INC-006',
-      severity: 'LOW',
-      title: 'Lost and found - Voter ID document',
-      location: 'Mirza Golan Hafiz College',
-      status: 'resolved',
-      description: 'Voter ID document found and returned to owner',
-      reportedBy: 'Officer Hassan',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 4 * 60 * 60000).toISOString(),
-      type: 'Lost & Found',
-      pollingCenterId: 'DHK-PS-35',
-      coordinates: { lat: 23.7, lng: 90.7 },
-    },
-    'INC-007': {
-      id: 'INC-007',
-      severity: 'CRITICAL',
-      title: 'Armed individuals spotted near polling center',
-      location: 'Savar Girls High School',
-      status: 'pending',
-      description: 'Armed suspect seen in vicinity of polling station',
-      reportedBy: 'Officer Ali',
-      reportedByRole: 'Presiding Officer',
-      timestamp: new Date(Date.now() - 15 * 60000).toISOString(),
-      type: 'Security Threat',
-      pollingCenterId: 'DHK-PS-40',
-      coordinates: { lat: 23.8, lng: 90.8 },
-    },
-    'INC-008': {
-      id: 'INC-008',
-      severity: 'HIGH',
-      title: 'Technical issue - Voter list system offline',
-      location: 'Sakot Central Hub',
-      status: 'acknowledged',
-      description: 'Voter verification system temporarily down',
-      reportedBy: 'System Admin',
-      reportedByRole: 'System Administrator',
-      timestamp: new Date(Date.now() - 5 * 60 * 60000).toISOString(),
-      type: 'Technical',
-      pollingCenterId: 'DHK-HUB-01',
-      coordinates: { lat: 23.9, lng: 90.9 },
-    },
-  };
-
   useEffect(() => {
-    // Try to load from localStorage first
+    // Load from localStorage only
     const stored = localStorage.getItem('reportedIncidents');
     if (stored) {
       const incidents = JSON.parse(stored);
@@ -144,19 +28,9 @@ export default function PoliceIncidentDetailsPage() {
         setFetchedIncidentData(found);
         setHandlingNotes(found.lawEnforcementNotes || '');
         setHasAcknowledged(found.status === 'acknowledged');
-        setLoading(false);
-        return;
       }
     }
-
-    // Use mock data
-    const mockIncident = mockIncidentsData[incidentId];
-    if (mockIncident) {
-      setIncident(mockIncident);
-      setLoading(false);
-    } else {
-      setLoading(false);
-    }
+    setLoading(false);
   }, [incidentId]);
 
   const handleAcknowledge = () => {
@@ -300,12 +174,41 @@ export default function PoliceIncidentDetailsPage() {
                 <h2 className="text-lg font-semibold text-gray-900">Photo Evidence</h2>
               </div>
               
-              <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center border-2 border-dashed border-gray-300">
-                <div className="text-center">
-                  <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 font-medium">Photo evidence from incident</p>
+              {incident.attachments && incident.attachments.length > 0 ? (
+                <div className="grid grid-cols-1 gap-4">
+                  {incident.attachments.map((attachment: any, index: number) => {
+                    // Handle both object format {id, name, type, url, size} and string format (base64 or URL)
+                    const isObject = typeof attachment === 'object' && attachment !== null;
+                    const imageUrl = isObject ? attachment.url : attachment;
+                    const imageName = isObject ? attachment.name : `Evidence ${index + 1}`;
+                    
+                    return (
+                      <div key={isObject ? attachment.id : index} className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+                        <img 
+                          src={imageUrl} 
+                          alt={imageName}
+                          className="w-full h-96 object-contain"
+                        />
+                        {isObject && attachment.name && (
+                          <div className="p-3 bg-white border-t border-gray-200">
+                            <p className="text-sm font-medium text-gray-900">{attachment.name}</p>
+                            {attachment.size && (
+                              <p className="text-xs text-gray-500 mt-1">{(attachment.size / 1024).toFixed(1)} KB</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              ) : (
+                <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center border-2 border-dashed border-gray-300">
+                  <div className="text-center">
+                    <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-600 font-medium">No photo evidence attached</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Incident Information */}
@@ -372,7 +275,11 @@ export default function PoliceIncidentDetailsPage() {
               </div>
               
               <p className="text-gray-900 font-semibold mb-1">{incident.location}</p>
-              <p className="text-xs text-gray-500 mb-4">Coordinates: {incident.coordinates.lat}, {incident.coordinates.lng}</p>
+              {(incident.gpsLocation || incident.coordinates) && (
+                <p className="text-xs text-gray-500 mb-4">
+                  Coordinates: {incident.gpsLocation?.lat || incident.coordinates?.lat}, {incident.gpsLocation?.lng || incident.coordinates?.lng}
+                </p>
+              )}
             </div>
 
             {/* Time */}
