@@ -48,6 +48,7 @@ interface User {
   password?: string;
   serviceId?: string;
   rank?: string;
+  avatar?: string;
 }
 
 export default function UserManagementPage() {
@@ -83,7 +84,7 @@ export default function UserManagementPage() {
   // Load users from shared store
   const [users, setUsers] = useState<User[]>([]);
   
-  useEffect(() => {
+  const refreshUsers = () => {
     const loadedUsers = getUsers();
     setUsers(loadedUsers.map(u => ({
       id: u.id,
@@ -98,8 +99,13 @@ export default function UserManagementPage() {
       username: u.username,
       password: u.password,
       serviceId: u.serviceId,
-      rank: u.rank
+      rank: u.rank,
+      avatar: u.avatar
     })));
+  };
+  
+  useEffect(() => {
+    refreshUsers();
   }, []);
 
   // Filter users based on search and filters
@@ -162,19 +168,8 @@ export default function UserManagementPage() {
       lastActive: 'Just now'
     });
 
-    // Update local state
-    setUsers([...users, {
-      id: createdUser.id,
-      name: createdUser.name,
-      email: createdUser.email,
-      role: createdUser.role,
-      status: createdUser.status,
-      location: createdUser.location,
-      joinedDate: createdUser.joinedDate,
-      lastActive: createdUser.lastActive,
-      username: createdUser.username,
-      password: createdUser.password
-    }]);
+    // Refresh from database
+    refreshUsers();
 
     setShowAddUserModal(false);
     setNewUser({ name: '', email: '', role: 'Officer', location: '', password: '', username: '' });
@@ -186,10 +181,8 @@ export default function UserManagementPage() {
     // Update in shared store
     updateUserStatus(userId, 'Active');
     
-    // Update local state
-    setUsers(users.map(user => 
-      user.id === userId ? { ...user, status: 'Active' as const, lastActive: 'Just now' } : user
-    ));
+    // Refresh from database
+    refreshUsers();
     alert('User approved successfully! They can now log in.');
   };
 
@@ -199,8 +192,8 @@ export default function UserManagementPage() {
       // Delete from shared store
       deleteUser(userId);
       
-      // Update local state
-      setUsers(users.filter(user => user.id !== userId));
+      // Refresh from database
+      refreshUsers();
       alert('User rejected and removed from the system.');
     }
   };
@@ -222,8 +215,8 @@ export default function UserManagementPage() {
       // Delete from shared store
       deleteUser(userToDelete);
       
-      // Update local state
-      setUsers(users.filter(user => user.id !== userToDelete));
+      // Refresh from database
+      refreshUsers();
       setShowDeleteModal(false);
       setUserToDelete(null);
       alert('User deleted successfully!');
@@ -411,14 +404,23 @@ export default function UserManagementPage() {
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center">
-                            <span className="text-white font-semibold text-sm">
-                              {user.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-                            </span>
-                          </div>
+                          {user.avatar ? (
+                            <img 
+                              src={user.avatar} 
+                              alt={user.name}
+                              className="w-10 h-10 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold text-sm">
+                                {user.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                              </span>
+                            </div>
+                          )}
                           <div>
                             <p className="font-medium text-gray-800">{user.name}</p>
                             <p className="text-sm text-gray-500">{user.email}</p>
+                            {user.phone && <p className="text-xs text-gray-400">{user.phone}</p>}
                             <p className="text-xs text-gray-400">{user.id}</p>
                           </div>
                         </div>

@@ -353,7 +353,7 @@ export default function AdminDashboard() {
                         </span>
                         {incident.isNew && (
                           <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded">
-                            NEW FROM OFFICER
+                            {incident.reportedBy || 'Officer'}
                           </span>
                         )}
                       </div>

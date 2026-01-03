@@ -254,13 +254,48 @@ export default function IncidentDetailsPage() {
                 <h2 className="text-lg font-semibold text-gray-900">Photo Evidence</h2>
               </div>
               
-              <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center border-2 border-dashed border-gray-300">
-                <div className="text-center">
-                  <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-600 font-medium">Photo evidence from incident</p>
-                  <p className="text-sm text-gray-500 mt-1">{incident.photoEvidence}</p>
+              {incident.attachments && incident.attachments.length > 0 ? (
+                <div className="grid grid-cols-2 gap-4">
+                  {incident.attachments.map((file: any, index: number) => (
+                    <div key={file.id || index} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {file.type?.startsWith('image/') ? (
+                        <img 
+                          src={file.url} 
+                          alt={file.name}
+                          className="w-full h-64 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => window.open(file.url, '_blank')}
+                        />
+                      ) : (
+                        <div className="h-64 bg-gray-100 flex items-center justify-center">
+                          <div className="text-center">
+                            <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                            <p className="text-sm text-gray-600">{file.name}</p>
+                            <a 
+                              href={file.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 text-xs hover:underline mt-1 inline-block"
+                            >
+                              View File
+                            </a>
+                          </div>
+                        </div>
+                      )}
+                      <div className="p-2 bg-gray-50 border-t border-gray-200">
+                        <p className="text-xs text-gray-600 truncate">{file.name}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              ) : (
+                <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center border-2 border-dashed border-gray-300">
+                  <div className="text-center">
+                    <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-600 font-medium">No photo evidence attached</p>
+                    <p className="text-sm text-gray-500 mt-1">No attachments were submitted with this incident</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Incident Information */}
