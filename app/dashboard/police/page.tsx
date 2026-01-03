@@ -302,7 +302,7 @@ export default function PoliceDashboard() {
                         </span>
                         <span className="text-gray-600 font-semibold">{incident.id}</span>
                         <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-md ml-auto">
-                          🆕 NEW FROM OFFICER
+                          🆕 {incident.reportedBy || 'Officer'}
                         </span>
                       </div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">

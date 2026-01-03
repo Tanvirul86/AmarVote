@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, User, LogOut, CheckCircle, Save, X, Camera, MapPin, Clock, Upload, FileText, Image, Trash2, Lock, ArrowLeft, ChevronDown } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
+import OfficerSlidingSidebar from '@/components/shared/OfficerSlidingSidebar';
 
 interface AttachedFile {
   id: string;
@@ -31,6 +32,7 @@ interface Incident {
 export default function OfficerDashboard() {
   const router = useRouter();
   const [pollingCenterId, setPollingCenterId] = useState('PC-DHK-001');
+  const [pollingCenterName, setPollingCenterName] = useState('');
   const [voteSubmissionEnabled, setVoteSubmissionEnabled] = useState(false);
   const [userName, setUserName] = useState('Presiding Officer');
   const [userRole, setUserRole] = useState('Presiding Officer');
@@ -44,18 +46,58 @@ export default function OfficerDashboard() {
     IND: 0,
   });
 
-  // Load user data from localStorage
+  // Load user data from localStorage and database
   useEffect(() => {
-    try {
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        const user = JSON.parse(userData);
-        if (user.name) setUserName(user.name);
-        if (user.role) setUserRole(user.role);
+    const loadUserData = async () => {
+      try {
+        const currentUserId = localStorage.getItem('currentUserId');
+        
+        if (currentUserId) {
+          // Load from user database to get latest profile
+          const { getUserById } = await import('@/data/mockData');
+          const userFromDb = getUserById(currentUserId);
+          
+          if (userFromDb) {
+            setUserName(userFromDb.name);
+            
+            // Load polling center information
+            if (userFromDb.pollingCenterId) {
+              setPollingCenterId(userFromDb.pollingCenterId);
+            }
+            if (userFromDb.pollingCenterName) {
+              setPollingCenterName(userFromDb.pollingCenterName);
+            }
+            
+            // Update localStorage with latest data
+            const userData = {
+              name: userFromDb.name,
+              role: 'Presiding Officer',
+              avatar: userFromDb.avatar || '',
+              userId: userFromDb.id,
+              phone: userFromDb.phone || '',
+              email: userFromDb.email,
+              pollingCenterId: userFromDb.pollingCenterId || '',
+              pollingCenterName: userFromDb.pollingCenterName || ''
+            };
+            localStorage.setItem('user', JSON.stringify(userData));
+          }
+        } else {
+          // Fallback to localStorage only
+          const userData = localStorage.getItem('user');
+          if (userData) {
+            const user = JSON.parse(userData);
+            if (user.name) setUserName(user.name);
+            if (user.role) setUserRole(user.role);
+            if (user.pollingCenterId) setPollingCenterId(user.pollingCenterId);
+            if (user.pollingCenterName) setPollingCenterName(user.pollingCenterName);
+          }
+        }
+      } catch (e) {
+        console.error('Error loading user data:', e);
       }
-    } catch (e) {
-      // ignore errors
-    }
+    };
+    
+    loadUserData();
   }, []);
 
   // Check vote submission status from localStorage (set by admin)
@@ -275,6 +317,7 @@ export default function OfficerDashboard() {
         reportedBy: userInfo.name || 'Presiding Officer',
         reportedByRole: 'Presiding Officer',
         pollingCenterId: pollingCenterId,
+        pollingCenterName: pollingCenterName || userInfo.pollingCenterName || 'Unknown Center',
       };
       localStorage.setItem('reportedIncidents', JSON.stringify([incidentToSave, ...existingIncidents]));
       
@@ -329,6 +372,7 @@ export default function OfficerDashboard() {
       // Store submitted vote data
       const voteData = {
         pollingCenter: pollingCenterId,
+        pollingCenterName: pollingCenterName || 'Unknown Center',
         totalVotes: totalVotes,
         submittedBy: `${userName} - Dhaka`,
         submittedAt: new Date().toISOString()
@@ -350,72 +394,33 @@ export default function OfficerDashboard() {
   if (showVoteSubmittedView && submittedVoteData) {
     return (
       <div className="min-h-screen bg-gray-100">
-        {/* Blue Header */}
-        <div className="bg-blue-600 shadow-md">
+        {/* Green Header with Sliding Sidebar */}
+        <div className="bg-green-600 shadow-md">
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowVoteSubmittedView(false)}
-                className="text-white hover:bg-blue-500 p-1 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <h1 className="text-xl font-semibold text-white">Vote Submission Confirmed</h1>
+            <div className="flex items-center gap-4">
+              <OfficerSlidingSidebar 
+                onReportIncident={() => setShowIncidentModal(true)}
+                onSubmitVotes={() => {}}
+                voteSubmissionEnabled={voteSubmissionEnabled}
+                votesAlreadySubmitted={true}
+                submittedIncidentsCount={submittedIncidents.length}
+              />
+              <h1 className="text-xl font-semibold text-white">Vote Submission Confirmed - AmarVote</h1>
             </div>
             <UserProfileControls role="officer" onLogout={handleLogout} showEditProfile={true} />
           </div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="grid grid-cols-12 gap-6">
-            {/* Left Sidebar */}
-            <div className="col-span-3">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div className="p-4 border-b border-gray-200">
-                  <h2 className="text-base font-semibold text-gray-900">Officer Menu</h2>
-                </div>
-                
-                <div className="p-4 space-y-3">
-                  {/* Report Incident Button */}
-                  <button 
-                    onClick={() => setShowIncidentModal(true)}
-                    className="w-full bg-white border-2 border-red-200 rounded-lg p-4 flex items-center gap-3 hover:bg-red-50 transition-all"
-                  >
-                    <AlertTriangle className="w-5 h-5 text-red-500" />
-                    <div className="text-left">
-                      <p className="text-sm font-semibold text-red-600">Report Incident</p>
-                      <p className="text-xs text-red-400">Always available</p>
-                    </div>
-                  </button>
-
-                  {/* Voting Status */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="space-y-3">
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Voting Status</p>
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 bg-pink-500 rounded-full"></span>
-                        <p className="text-sm font-semibold text-pink-600">Voting Ended</p>
-                      </div>
-                      <p className="text-xs text-gray-600">Center: {submittedVoteData.pollingCenter}</p>
-                      <div className="flex items-center gap-2 text-green-600">
-                        <CheckCircle className="w-4 h-4" />
-                        <span className="text-sm font-medium">Votes Submitted</span>
-                      </div>
-                    </div>
-                  </div>
+        <div className="max-w-5xl mx-auto px-6 py-6">
+          {/* Main Content - Success Card */}
+          <div className="flex items-start justify-center pt-12">
+            <div className="bg-white rounded-2xl shadow-lg border-2 border-green-400 p-10 max-w-lg w-full text-center">
+              {/* Success Icon */}
+              <div className="mb-6">
+                <div className="w-16 h-16 bg-green-100 rounded-full mx-auto flex items-center justify-center">
+                  <CheckCircle className="w-10 h-10 text-green-500" strokeWidth={2} />
                 </div>
               </div>
-            </div>
-
-            {/* Main Content - Success Card */}
-            <div className="col-span-9 flex items-start justify-center pt-12">
-              <div className="bg-white rounded-2xl shadow-lg border-2 border-green-400 p-10 max-w-lg w-full text-center">
-                {/* Success Icon */}
-                <div className="mb-6">
-                  <div className="w-16 h-16 bg-green-100 rounded-full mx-auto flex items-center justify-center">
-                    <CheckCircle className="w-10 h-10 text-green-500" strokeWidth={2} />
-                  </div>
-                </div>
 
                 {/* Success Message */}
                 <h2 className="text-xl font-bold text-gray-900 mb-3">
@@ -458,32 +463,40 @@ export default function OfficerDashboard() {
               </div>
             </div>
           </div>
-        </div>
 
         {/* Keep Incident Report Modal available */}
         {showIncidentModal && (
-          <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
-            {/* Blue Header */}
-            <div className="bg-blue-600 text-white px-4 py-4">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowIncidentModal(false)}
-                  className="p-1 hover:bg-blue-500 rounded-lg transition-colors"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-                <div>
-                  <h1 className="text-lg font-semibold">Report Incident</h1>
-                  <p className="text-sm text-blue-100">Presiding Officer</p>
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            {/* Dark overlay */}
+            <div className="fixed inset-0 bg-black/50" onClick={() => setShowIncidentModal(false)} />
+            
+            {/* Modal Content */}
+            <div className="relative min-h-screen flex items-start justify-center pt-10 pb-10 px-4">
+              <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+                {/* Modal Header */}
+                <div className="bg-red-600 text-white px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <AlertTriangle className="w-6 h-6" />
+                      <div>
+                        <h1 className="text-lg font-semibold">Report Incident</h1>
+                        <p className="text-sm text-red-100">Submit emergency report</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowIncidentModal(false)}
+                      className="p-2 hover:bg-red-500 rounded-lg transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>
 
             {/* Form Content */}
-            <form onSubmit={handleIncidentSubmit} className="max-w-2xl mx-auto p-4 space-y-4">
+            <form onSubmit={handleIncidentSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               
               {/* Photo Evidence Card */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+              <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Camera className="w-5 h-5 text-gray-600" />
                   <span className="font-semibold text-gray-900">Photo Evidence</span>
@@ -493,7 +506,7 @@ export default function OfficerDashboard() {
                 {/* Upload Area */}
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-xl py-10 text-center hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-colors"
+                  className="border-2 border-dashed border-gray-300 rounded-xl py-8 text-center hover:border-red-400 hover:bg-red-50 cursor-pointer transition-colors"
                 >
                   <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-600">Click to upload photo</p>
@@ -663,18 +676,18 @@ export default function OfficerDashboard() {
               </div>
 
               {/* Bottom Buttons */}
-              <div className="flex gap-3 pt-2 pb-8">
+              <div className="flex gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowIncidentModal(false)}
-                  className="flex-1 px-6 py-3.5 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 px-6 py-3.5 bg-red-500 text-white font-medium rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -684,12 +697,14 @@ export default function OfficerDashboard() {
                   ) : (
                     <>
                       <AlertTriangle className="w-4 h-4" />
-                      Submit Incident Report
+                      Submit Report
                     </>
                   )}
                 </button>
               </div>
             </form>
+              </div>
+            </div>
           </div>
         )}
 
@@ -724,101 +739,28 @@ export default function OfficerDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-indigo-600 shadow-md">
+      {/* Header with Sliding Sidebar */}
+      <div className="bg-green-600 shadow-md">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-white">Vote Entry Dashboard</h1>
+          <div className="flex items-center gap-4">
+            <OfficerSlidingSidebar 
+              onReportIncident={() => setShowIncidentModal(true)}
+              onSubmitVotes={() => {
+                // Scroll to form section
+                document.getElementById('vote-entry-form')?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              voteSubmissionEnabled={voteSubmissionEnabled}
+              votesAlreadySubmitted={showVoteSubmittedView}
+              submittedIncidentsCount={submittedIncidents.length}
+            />
+            <h1 className="text-xl font-semibold text-white">Presiding Officer Dashboard - AmarVote</h1>
+          </div>
           <UserProfileControls role="officer" onLogout={handleLogout} showEditProfile={true} />
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="grid grid-cols-12 gap-6">
-          {/* Left Sidebar */}
-          <div className="col-span-3">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-4 border-b border-gray-200">
-                <h2 className="text-base font-semibold text-gray-900">Officer Menu</h2>
-              </div>
-              
-              <div className="p-4 space-y-3">
-                {/* Report Incident Button */}
-                <button 
-                  onClick={() => setShowIncidentModal(true)}
-                  className="w-full bg-gradient-to-r from-red-500 to-red-600 border border-red-600 rounded-lg p-4 flex items-center gap-3 hover:from-red-600 hover:to-red-700 transition-all shadow-sm"
-                >
-                  <AlertTriangle className="w-5 h-5 text-white" />
-                  <div className="text-left">
-                    <p className="text-sm font-semibold text-white">Report Incident</p>
-                    <p className="text-xs text-red-100">Always available</p>
-                  </div>
-                </button>
-
-                {/* Voting Status */}
-                <div className="border border-gray-200 rounded-lg p-4 bg-white">
-                  <div className="space-y-3">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Voting Status</p>
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 ${voteSubmissionEnabled ? 'bg-green-500' : 'bg-green-500'} rounded-full`}></span>
-                      <p className={`text-sm font-semibold ${voteSubmissionEnabled ? 'text-green-700' : 'text-green-700'}`}>
-                        {voteSubmissionEnabled ? 'Voting Ended' : 'Voting In Progress'}
-                      </p>
-                    </div>
-                    <p className="text-xs text-gray-600">Center: {pollingCenterId}</p>
-                    <button 
-                      type="button"
-                      className="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
-                    >
-                      Enter Vote Results
-                    </button>
-                  </div>
-                </div>
-
-                {/* Submitted Incidents - Review in Sidebar */}
-                {submittedIncidents.length > 0 && (
-                  <div className="border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-red-50 border-b border-red-200 p-3">
-                      <p className="text-xs font-semibold text-red-800">
-                        📋 {submittedIncidents.length} Incident(s) Reported
-                      </p>
-                    </div>
-                    <div className="max-h-48 overflow-y-auto">
-                      {submittedIncidents.map((incident) => (
-                        <div 
-                          key={incident.id}
-                          onClick={() => {
-                            setSelectedIncident(incident);
-                            setShowReviewModal(true);
-                          }}
-                          className="p-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors last:border-b-0"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm">
-                                {incidentTypes.find(t => t.value === incident.type)?.icon}
-                              </span>
-                              <span className={`px-1.5 py-0.5 text-[10px] font-medium rounded ${getSeverityColor(incident.severity)}`}>
-                                {incident.severity.toUpperCase()}
-                              </span>
-                            </div>
-                            <span className="text-[10px] text-indigo-600 font-medium">View →</span>
-                          </div>
-                          <p className="text-xs text-gray-600 mt-1 line-clamp-1">{incident.description}</p>
-                          <p className="text-[10px] text-gray-400 mt-1">
-                            {new Date(incident.timestamp).toLocaleTimeString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="col-span-9">
-            <div className="space-y-6">
+      <div className="max-w-5xl mx-auto px-6 py-6">
+        <div className="space-y-6">
               {/* Status Alert - Dynamic based on vote submission status */}
               {voteSubmissionEnabled ? (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
@@ -841,8 +783,8 @@ export default function OfficerDashboard() {
               )}
 
               {/* Vote Entry Form */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-indigo-900 mb-6">Party-wise Vote Entry</h2>
+              <div id="vote-entry-form" className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h2 className="text-lg font-semibold text-green-800 mb-6">Party-wise Vote Entry</h2>
                 
                 {/* Locked Warning Banner */}
                 {!voteSubmissionEnabled && (
@@ -866,7 +808,7 @@ export default function OfficerDashboard() {
                       type="text"
                       value={pollingCenterId}
                       onChange={(e) => setPollingCenterId(e.target.value)}
-                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-500' : ''}`}
+                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-500' : ''}`}
                       readOnly
                       disabled={!voteSubmissionEnabled}
                     />
@@ -890,7 +832,7 @@ export default function OfficerDashboard() {
                             min="0"
                             value={voteCounts[party.id as keyof typeof voteCounts]}
                             onChange={(e) => handleVoteChange(party.id, e.target.value)}
-                            className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-center ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-400' : 'bg-gray-50'}`}
+                            className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-400' : 'bg-gray-50'}`}
                             placeholder="0"
                             disabled={!voteSubmissionEnabled}
                           />
@@ -912,7 +854,7 @@ export default function OfficerDashboard() {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
                 >
                   <Save className="w-5 h-5" />
                   Submit Vote Counts (One-Time Only)
@@ -944,35 +886,100 @@ export default function OfficerDashboard() {
                 </div>
               </div>
 
-            </div>
-          </div>
-        </div>
-      </div>
+              {/* Submitted Incidents Section */}
+              {submittedIncidents.length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Your Submitted Incident Reports</h2>
+                  <div className="space-y-3">
+                    {submittedIncidents.map((incident) => (
+                      <div 
+                        key={incident.id}
+                        onClick={() => {
+                          setSelectedIncident(incident);
+                          setShowReviewModal(true);
+                        }}
+                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                              incident.severity === 'critical' ? 'bg-red-100 text-red-700' :
+                              incident.severity === 'high' ? 'bg-orange-100 text-orange-700' :
+                              incident.severity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
+                              {incident.severity.toUpperCase()}
+                            </span>
+                            <span className="text-xs text-gray-500">{incident.id}</span>
+                          </div>
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                            incident.status === 'submitted' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                          }`}>
+                            {incident.status}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900 mb-1">
+                          {incident.type.charAt(0).toUpperCase() + incident.type.slice(1)} Incident
+                        </p>
+                        <p className="text-xs text-gray-600 mb-2">{incident.description.substring(0, 100)}...</p>
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            <span>{incident.location}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{new Date(incident.timestamp).toLocaleString()}</span>
+                          </div>
+                          {incident.attachments && incident.attachments.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Image className="w-3 h-3" />
+                              <span>{incident.attachments.length} file(s)</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-      {/* Incident Report Modal - Full Page Style */}
-      {showIncidentModal && (
-        <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto">
-          {/* Blue Header */}
-          <div className="bg-blue-600 text-white px-4 py-4">
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowIncidentModal(false)}
-                className="p-1 hover:bg-blue-500 rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div>
-                <h1 className="text-lg font-semibold">Report Incident</h1>
-                <p className="text-sm text-blue-100">Presiding Officer</p>
-              </div>
             </div>
           </div>
+
+      {/* Incident Report Modal - Overlay Style */}
+      {showIncidentModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          {/* Dark overlay */}
+          <div className="fixed inset-0 bg-black/50" onClick={() => setShowIncidentModal(false)} />
+          
+          {/* Modal Content */}
+          <div className="relative min-h-screen flex items-start justify-center pt-10 pb-10 px-4">
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+              {/* Modal Header */}
+              <div className="bg-red-600 text-white px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="w-6 h-6" />
+                    <div>
+                      <h1 className="text-lg font-semibold">Report Incident</h1>
+                      <p className="text-sm text-red-100">Submit emergency report</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowIncidentModal(false)}
+                    className="p-2 hover:bg-red-500 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
 
           {/* Form Content */}
-          <form onSubmit={handleIncidentSubmit} className="max-w-2xl mx-auto p-4 space-y-4">
+          <form onSubmit={handleIncidentSubmit} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
             
             {/* Photo Evidence Card */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Camera className="w-5 h-5 text-gray-600" />
                 <span className="font-semibold text-gray-900">Photo Evidence</span>
@@ -982,7 +989,7 @@ export default function OfficerDashboard() {
               {/* Upload Area */}
               <div 
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-xl py-10 text-center hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-colors"
+                className="border-2 border-dashed border-gray-300 rounded-xl py-8 text-center hover:border-red-400 hover:bg-red-50 cursor-pointer transition-colors"
               >
                 <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                 <p className="text-sm text-gray-600">Click to upload photo</p>
@@ -1152,18 +1159,18 @@ export default function OfficerDashboard() {
             </div>
 
             {/* Bottom Buttons */}
-            <div className="flex gap-3 pt-2 pb-8">
+            <div className="flex gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => setShowIncidentModal(false)}
-                className="flex-1 px-6 py-3.5 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
+                className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 px-6 py-3.5 bg-red-500 text-white font-medium rounded-xl hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 px-6 py-3 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   <>
@@ -1173,12 +1180,14 @@ export default function OfficerDashboard() {
                 ) : (
                   <>
                     <AlertTriangle className="w-4 h-4" />
-                    Submit Incident Report
+                    Submit Report
                   </>
                 )}
               </button>
             </div>
           </form>
+            </div>
+          </div>
         </div>
       )}
 

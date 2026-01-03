@@ -21,23 +21,46 @@ export default function OfficerProfileEditPage() {
 
   // Load existing user data from localStorage
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('user');
-      if (stored) {
-        const user = JSON.parse(stored);
-        if (user.name) {
-          setProfileData(prev => ({
-            ...prev,
-            fullName: user.name,
-          }));
+    const loadUserProfile = async () => {
+      try {
+        const currentUserId = localStorage.getItem('currentUserId');
+        
+        if (currentUserId) {
+          // Load from user database
+          const { getUserById } = await import('@/data/mockData');
+          const userFromDb = getUserById(currentUserId);
+          
+          if (userFromDb) {
+            setProfileData(prev => ({
+              ...prev,
+              fullName: userFromDb.name,
+              email: userFromDb.email,
+              phone: userFromDb.phone || prev.phone,
+              badge: userFromDb.id,
+              station: userFromDb.location,
+              district: userFromDb.location,
+            }));
+            
+            if (userFromDb.avatar) {
+              setPreviewUrl(userFromDb.avatar);
+            }
+          }
         }
-        if (user.avatar) {
-          setPreviewUrl(user.avatar);
+        
+        // Also check localStorage for display data
+        const stored = localStorage.getItem('user');
+        if (stored) {
+          const user = JSON.parse(stored);
+          if (user.avatar && !previewUrl) {
+            setPreviewUrl(user.avatar);
+          }
         }
+      } catch (e) {
+        console.error('Error loading user data:', e);
       }
-    } catch (e) {
-      console.error('Error loading user data:', e);
-    }
+    };
+    
+    loadUserProfile();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,14 +111,27 @@ export default function OfficerProfileEditPage() {
         });
       }
       
-      // Save to localStorage
-      const userData = {
-        name: profileData.fullName,
-        role: 'Presiding Officer',
-        avatar: avatarDataUrl || '',
-      };
+      // Get current user ID
+      const currentUserId = localStorage.getItem('currentUserId');
       
-      localStorage.setItem('user', JSON.stringify(userData));
+      if (currentUserId) {
+        // Update in the user database
+        const { updateUserProfile } = await import('@/data/mockData');
+        updateUserProfile(currentUserId, {
+          phone: profileData.phone,
+          avatar: avatarDataUrl || ''
+        });
+      }
+      
+      // Update localStorage display data
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        const userData = JSON.parse(stored);
+        userData.avatar = avatarDataUrl || '';
+        userData.phone = profileData.phone;
+        localStorage.setItem('user', JSON.stringify(userData));
+      }
+      
       alert('Profile updated successfully!');
       router.push('/dashboard/officer');
     } catch (error) {
@@ -107,7 +143,7 @@ export default function OfficerProfileEditPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-indigo-600 text-white px-6 py-4 shadow-md">
+      <div className="bg-green-600 text-white px-6 py-4 shadow-md">
         <div className="flex items-center gap-4">
           <Link 
             href="/dashboard/officer"
@@ -117,7 +153,7 @@ export default function OfficerProfileEditPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold">Edit Profile</h1>
-            <p className="text-indigo-100 text-sm">Update your personal information and profile picture</p>
+            <p className="text-green-100 text-sm">Update your photo and phone number</p>
           </div>
         </div>
       </div>
@@ -127,7 +163,7 @@ export default function OfficerProfileEditPage() {
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <form onSubmit={handleSave}>
             {/* Profile Picture Section */}
-            <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 px-8 py-10 text-white">
+            <div className="bg-gradient-to-br from-green-600 to-green-700 px-8 py-10 text-white">
               <h2 className="text-xl font-semibold mb-6">Profile Picture</h2>
               <div className="flex items-center gap-8">
                 {/* Current/Preview Image */}
@@ -147,7 +183,7 @@ export default function OfficerProfileEditPage() {
                     <button
                       type="button"
                       onClick={handleRemoveImage}
-                      className="absolute -top-2 -right-2 bg-indigo-500 text-white p-2 rounded-full hover:bg-indigo-600 transition-colors shadow-lg"
+                      className="absolute -top-2 -right-2 bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors shadow-lg"
                       title="Remove image"
                     >
                       <X className="w-4 h-4" />
@@ -176,7 +212,7 @@ export default function OfficerProfileEditPage() {
                     />
                     <label
                       htmlFor="profileImageUpload"
-                      className="inline-flex items-center gap-2 bg-white text-indigo-600 font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-50 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-2 bg-white text-green-600 font-semibold px-5 py-2.5 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
                     >
                       <Camera className="w-5 h-5" />
                       {profileImage ? 'Change Picture' : 'Choose Picture'}
@@ -194,55 +230,58 @@ export default function OfficerProfileEditPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Full Name <span className="text-indigo-600">*</span>
+                    Full Name
                   </label>
                   <input
                     type="text"
                     name="fullName"
                     value={profileData.fullName}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Email Address <span className="text-indigo-600">*</span>
+                    Email Address
                   </label>
                   <input
                     type="email"
                     name="email"
                     value={profileData.email}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Phone Number <span className="text-indigo-600">*</span>
+                    Phone Number <span className="text-green-600">*</span>
                   </label>
                   <input
                     type="tel"
                     name="phone"
                     value={profileData.phone}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Badge Number <span className="text-indigo-600">*</span>
+                    Badge Number
                   </label>
                   <input
                     type="text"
                     name="badge"
                     value={profileData.badge}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
               </div>
 
@@ -252,43 +291,53 @@ export default function OfficerProfileEditPage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Polling Station <span className="text-indigo-600">*</span>
+                    Polling Station
                   </label>
                   <input
                     type="text"
                     name="station"
                     value={profileData.station}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    District <span className="text-indigo-600">*</span>
+                    District
                   </label>
                   <input
                     type="text"
                     name="district"
                     value={profileData.district}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Rank <span className="text-indigo-600">*</span>
+                    Rank
                   </label>
                   <input
                     type="text"
                     name="rank"
                     value={profileData.rank}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    required
+                    className="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-gray-400 mt-1">Contact admin to change</p>
                 </div>
+              </div>
+
+              {/* Info Notice */}
+              <div className="mt-6 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm text-amber-800">
+                  <strong>Note:</strong> Only your profile photo and phone number can be updated. For other changes, please contact the Election Commission administrator.
+                </p>
               </div>
 
               {/* Action Buttons */}
@@ -301,7 +350,7 @@ export default function OfficerProfileEditPage() {
                 </Link>
                 <button
                   type="submit"
-                  className="flex-1 bg-indigo-600 text-white font-semibold py-3.5 px-6 rounded-xl hover:bg-indigo-700 transition-colors shadow-md flex items-center justify-center gap-2"
+                  className="flex-1 bg-green-600 text-white font-semibold py-3.5 px-6 rounded-xl hover:bg-green-700 transition-colors shadow-md flex items-center justify-center gap-2"
                 >
                   <Save className="w-5 h-5" />
                   Save Changes
