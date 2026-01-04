@@ -1,38 +1,61 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Menu, X } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
 import ChartTooltip from '@/components/shared/ChartTooltip';
-import { logs as sharedLogs } from '@/data/mockData';
-
-const mockLogs = sharedLogs || [];
+import { getAuditLogs, AuditLog } from '@/lib/auditLog';
 
 export default function SystemLogsPage() {
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [query, setQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
   const [userHover, setUserHover] = useState<{ x: number; y: number; content: string } | null>(null);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+
+  // Load logs from localStorage on mount and when updated
+  useEffect(() => {
+    const loadLogs = () => {
+      const auditLogs = getAuditLogs();
+      setLogs(auditLogs);
+    };
+
+    loadLogs();
+
+    // Listen for log updates
+    const handleLogUpdate = () => {
+      loadLogs();
+    };
+
+    window.addEventListener('auditLogUpdated', handleLogUpdate);
+    window.addEventListener('storage', loadLogs);
+
+    return () => {
+      window.removeEventListener('auditLogUpdated', handleLogUpdate);
+      window.removeEventListener('storage', loadLogs);
+    };
+  }, []);
 
   const filtered = useMemo(() => {
-    return mockLogs.filter(l => {
+    return logs.filter(l => {
       if (actionFilter !== 'ALL' && l.action !== actionFilter) return false;
       if (!query) return true;
       const q = query.toLowerCase();
       return (l.timestamp || '').toLowerCase().includes(q) || (l.user || '').toLowerCase().includes(q) || (l.action || '').toLowerCase().includes(q) || (l.details || '').toLowerCase().includes(q) || (l.ip || '').toLowerCase().includes(q);
     });
-  }, [query, actionFilter]);
+  }, [query, actionFilter, logs]);
 
   const stats = useMemo(() => {
-    const total = mockLogs.length;
-    const votesSubmitted = mockLogs.filter(m => m.action === 'VOTE SUBMITTED').length;
-    const incidentsReported = mockLogs.filter(m => m.action === 'INCIDENT REPORTED').length;
-    const usersCreated = mockLogs.filter(m => m.action === 'USER CREATED').length;
+    const total = logs.length;
+    const votesSubmitted = logs.filter(m => m.action === 'VOTE SUBMITTED').length;
+    const incidentsReported = logs.filter(m => m.action === 'INCIDENT REPORTED').length;
+    const usersCreated = logs.filter(m => m.action === 'USER CREATED').length;
     return { total, votesSubmitted, incidentsReported, usersCreated };
-  }, [mockLogs]);
+  }, [logs]);
 
   function exportCsv() {
     const rows = [['timestamp','user','action','details','ip']];
@@ -51,10 +74,16 @@ export default function SystemLogsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <SlidingSidebar />
-      <header className="bg-green-600 text-white px-6 py-4">
+      <SlidingSidebar open={sidebarOpen} onOpenChange={setSidebarOpen} hideTrigger />
+      <header className="bg-green-600 text-white px-6 py-4 sticky top-0 z-40 shadow-md">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 hover:bg-green-700 rounded transition-colors"
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
             <button onClick={() => router.back()} className="p-2 hover:bg-green-700 rounded transition-colors">
               <ChevronLeft className="w-5 h-5" />
             </button>
