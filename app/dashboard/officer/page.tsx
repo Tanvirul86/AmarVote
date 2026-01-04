@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, User, LogOut, CheckCircle, Save, X, Camera, MapPin, Clock, Upload, FileText, Image, Trash2, Lock, ArrowLeft, ChevronDown } from 'lucide-react';
+import { AlertTriangle, User, LogOut, CheckCircle, Save, X, Camera, MapPin, Clock, Upload, FileText, Trash2, Lock, ArrowLeft, ChevronDown } from 'lucide-react';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import OfficerSlidingSidebar from '@/components/shared/OfficerSlidingSidebar';
+import { addAuditLog, AuditActions } from '@/lib/auditLog';
 
 interface AttachedFile {
   id: string;
@@ -36,6 +38,7 @@ export default function OfficerDashboard() {
   const [voteSubmissionEnabled, setVoteSubmissionEnabled] = useState(false);
   const [userName, setUserName] = useState('Presiding Officer');
   const [userRole, setUserRole] = useState('Presiding Officer');
+  const [totalVoters, setTotalVoters] = useState<number>(0);
   const [voteCounts, setVoteCounts] = useState({
     PA: 0,
     PB: 0,
@@ -116,25 +119,61 @@ export default function OfficerDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Check if votes have already been submitted
+  // Check if votes have already been submitted for this polling center
   useEffect(() => {
-    const submittedData = localStorage.getItem('votesSubmitted');
-    if (submittedData) {
-      const data = JSON.parse(submittedData);
-      setSubmittedVoteData(data);
-      setShowVoteSubmittedView(true);
+    if (!pollingCenterId) return;
+
+    try {
+      const raw = localStorage.getItem('votesSubmissions');
+      const submissions: any[] = raw ? JSON.parse(raw) : [];
+      const existing = submissions.find((entry) => entry.pollingCenter === pollingCenterId);
+
+      if (existing) {
+        setSubmittedVoteData(existing);
+        setShowVoteSubmittedView(true);
+      } else {
+        setSubmittedVoteData(null);
+        setShowVoteSubmittedView(false);
+      }
+    } catch (err) {
+      console.error('Error checking vote submission status', err);
     }
-  }, []);
+  }, [pollingCenterId]);
 
   // Check if admin has reset/re-enabled voting (to allow correction)
   useEffect(() => {
     const checkForReset = () => {
-      const resetFlag = localStorage.getItem('voteSubmissionReset');
-      if (resetFlag === 'true') {
+      const centerResetKey = `voteSubmissionReset_${pollingCenterId || ''}`;
+      const resubmitWindowKey = `voteResubmissionWindow_${pollingCenterId || ''}`;
+      const resetFlag = localStorage.getItem(centerResetKey) || localStorage.getItem('voteSubmissionReset');
+      const resubmitWindow = localStorage.getItem(resubmitWindowKey);
+      if (resetFlag === 'true' || resubmitWindow === 'true') {
         // Admin has approved the correction request - reset submission
+        try {
+          // Remove this center's submission from the multi-center list
+          const raw = localStorage.getItem('votesSubmissions');
+          const existing: any[] = raw ? JSON.parse(raw) : [];
+          const filtered = existing.filter((entry) => entry.pollingCenter !== pollingCenterId);
+          localStorage.setItem('votesSubmissions', JSON.stringify(filtered));
+        } catch (e) {
+          console.error('Error clearing vote submission for reset', e);
+        }
+
         localStorage.removeItem('votesSubmitted');
         localStorage.removeItem('voteSubmissionReset');
+        localStorage.removeItem(centerResetKey);
+        localStorage.removeItem(resubmitWindowKey);
+        const correctionKey = `correctionRequested_${pollingCenterId || ''}`;
+        localStorage.removeItem(correctionKey);
         localStorage.removeItem('correctionRequested');
+
+        // Persist that correction has been consumed for this center
+        const correctionUsedKey = `correctionUsed_${pollingCenterId || ''}`;
+        localStorage.setItem(correctionUsedKey, 'true');
+        setCorrectionUsed(true);
+
+        setCorrectionRequested(false);
+
         setShowVoteSubmittedView(false);
         setSubmittedVoteData(null);
         // Reset vote counts
@@ -149,17 +188,36 @@ export default function OfficerDashboard() {
 
   // Correction request state
   const [correctionRequested, setCorrectionRequested] = useState(false);
+  const [correctionUsed, setCorrectionUsed] = useState(false);
   
   useEffect(() => {
-    const requested = localStorage.getItem('correctionRequested');
-    if (requested === 'true') {
-      setCorrectionRequested(true);
-    }
-  }, []);
+    const correctionKey = `correctionRequested_${pollingCenterId || ''}`;
+    const correctionUsedKey = `correctionUsed_${pollingCenterId || ''}`;
+    const requested = localStorage.getItem(correctionKey) || localStorage.getItem('correctionRequested');
+    setCorrectionRequested(requested === 'true');
+
+    const used = localStorage.getItem(correctionUsedKey);
+    setCorrectionUsed(used === 'true');
+  }, [pollingCenterId]);
 
   const handleRequestCorrection = () => {
+    if (correctionUsed) {
+      alert('You have already used your one-time correction for this polling center.');
+      return;
+    }
+
     if (confirm('Are you sure you want to request a correction? Admin will review your request.')) {
+      const correctionKey = `correctionRequested_${pollingCenterId || ''}`;
+      const meta = {
+        officerName: userName,
+        pollingCenterId,
+        pollingCenterName,
+        requestedAt: new Date().toISOString(),
+      };
+
       localStorage.setItem('correctionRequested', 'true');
+      localStorage.setItem(correctionKey, 'true');
+      localStorage.setItem('correctionRequestMeta', JSON.stringify(meta));
       setCorrectionRequested(true);
       alert('Correction request submitted. Please wait for admin approval.');
     }
@@ -185,6 +243,13 @@ export default function OfficerDashboard() {
   const [incidentTitle, setIncidentTitle] = useState('');
   const [gpsLocation, setGpsLocation] = useState<{lat: number, lng: number} | null>(null);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+
+  // Keep incident location locked to the officer's polling center
+  useEffect(() => {
+    if (pollingCenterId) {
+      setIncidentLocation(pollingCenterId);
+    }
+  }, [pollingCenterId]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -320,6 +385,13 @@ export default function OfficerDashboard() {
         pollingCenterName: pollingCenterName || userInfo.pollingCenterName || 'Unknown Center',
       };
       localStorage.setItem('reportedIncidents', JSON.stringify([incidentToSave, ...existingIncidents]));
+
+      // Log incident report
+      addAuditLog(
+        AuditActions.INCIDENT_REPORTED,
+        `Reported ${incidentType} incident (${incidentSeverity} severity) at ${incidentLocation || pollingCenterId}: ${incidentDescription.substring(0, 100)}`,
+        userInfo.name || 'Presiding Officer'
+      );
       
       setIsSubmitting(false);
       setShowIncidentModal(false);
@@ -368,19 +440,42 @@ export default function OfficerDashboard() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (confirm('Are you sure? Vote counts can only be submitted ONCE and cannot be modified.')) {
-      console.log({ pollingCenterId, voteCounts, totalVotes });
-      // Store submitted vote data
       const voteData = {
         pollingCenter: pollingCenterId,
         pollingCenterName: pollingCenterName || 'Unknown Center',
-        totalVotes: totalVotes,
-        submittedBy: `${userName} - Dhaka`,
-        submittedAt: new Date().toISOString()
+        totalVotes,
+        totalVoters,
+        submittedBy: `${userName}${pollingCenterName ? ` - ${pollingCenterName}` : ''}`,
+        submittedAt: new Date().toISOString(),
+        partyVotes: voteCounts,
       };
-      setSubmittedVoteData(voteData);
-      // Save to localStorage to persist the submitted state
+
+      // Persist submission list (replace any previous submission for this center)
+      try {
+        const raw = localStorage.getItem('votesSubmissions');
+        const existing: any[] = raw ? JSON.parse(raw) : [];
+        const filtered = existing.filter((entry) => entry.pollingCenter !== pollingCenterId);
+        filtered.push(voteData);
+        localStorage.setItem('votesSubmissions', JSON.stringify(filtered));
+      } catch (err) {
+        console.error('Error saving vote submissions', err);
+      }
+
+      // Keep legacy single-submission key for backward compatibility (not used for blocking)
       localStorage.setItem('votesSubmitted', JSON.stringify(voteData));
-      // Show success view (no redirect)
+
+      // Close any resubmission window after the corrected submission
+      const resubmitWindowKey = `voteResubmissionWindow_${pollingCenterId || ''}`;
+      localStorage.removeItem(resubmitWindowKey);
+
+      // Log vote submission
+      addAuditLog(
+        AuditActions.VOTE_SUBMITTED,
+        `Submitted votes for ${pollingCenterName || 'Unknown Center'} (${pollingCenterId}) - Total: ${totalVotes} votes`,
+        userName
+      );
+
+      setSubmittedVoteData(voteData);
       setShowVoteSubmittedView(true);
     }
   };
@@ -395,8 +490,8 @@ export default function OfficerDashboard() {
     return (
       <div className="min-h-screen bg-gray-100">
         {/* Green Header with Sliding Sidebar */}
-        <div className="bg-green-600 shadow-md">
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <header className="bg-blue-600 text-white px-6 py-4 sticky top-0 z-40 shadow-md">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-4">
               <OfficerSlidingSidebar 
                 onReportIncident={() => setShowIncidentModal(true)}
@@ -405,20 +500,23 @@ export default function OfficerDashboard() {
                 votesAlreadySubmitted={true}
                 submittedIncidentsCount={submittedIncidents.length}
               />
-              <h1 className="text-xl font-semibold text-white">Vote Submission Confirmed - AmarVote</h1>
+              <div className="flex items-center gap-3 text-white">
+                <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={34} height={34} className="rounded-lg bg-white/10 p-1" />
+                <h1 className="text-xl font-semibold">Vote Submission Confirmed - AmarVote</h1>
+              </div>
             </div>
             <UserProfileControls role="officer" onLogout={handleLogout} showEditProfile={true} />
           </div>
-        </div>
+        </header>
 
         <div className="max-w-5xl mx-auto px-6 py-6">
           {/* Main Content - Success Card */}
           <div className="flex items-start justify-center pt-12">
-            <div className="bg-white rounded-2xl shadow-lg border-2 border-green-400 p-10 max-w-lg w-full text-center">
+            <div className="bg-white rounded-2xl shadow-lg border-2 border-blue-400 p-10 max-w-lg w-full text-center">
               {/* Success Icon */}
               <div className="mb-6">
-                <div className="w-16 h-16 bg-green-100 rounded-full mx-auto flex items-center justify-center">
-                  <CheckCircle className="w-10 h-10 text-green-500" strokeWidth={2} />
+                <div className="w-16 h-16 bg-blue-100 rounded-full mx-auto flex items-center justify-center">
+                  <CheckCircle className="w-10 h-10 text-blue-500" strokeWidth={2} />
                 </div>
               </div>
 
@@ -432,7 +530,7 @@ export default function OfficerDashboard() {
                 </p>
 
                 {/* Vote Details Box */}
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
                   <div className="space-y-1">
                     <p><span className="font-semibold text-gray-700">Polling Center:</span> <span className="text-gray-600">{submittedVoteData.pollingCenter}</span></p>
                     <p><span className="font-semibold text-gray-700">Total Votes:</span> <span className="text-gray-600">{submittedVoteData.totalVotes}</span></p>
@@ -445,6 +543,11 @@ export default function OfficerDashboard() {
                   <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <p className="text-yellow-800 text-sm font-medium">⏳ Correction Request Pending</p>
                     <p className="text-yellow-600 text-xs mt-1">Waiting for admin approval...</p>
+                  </div>
+                ) : correctionUsed ? (
+                  <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <p className="text-gray-700 text-sm font-medium">Correction already used for this polling center.</p>
+                    <p className="text-gray-500 text-xs mt-1">Further changes are not allowed.</p>
                   </div>
                 ) : (
                   <button
@@ -474,18 +577,18 @@ export default function OfficerDashboard() {
             <div className="relative min-h-screen flex items-start justify-center pt-10 pb-10 px-4">
               <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
                 {/* Modal Header */}
-                <div className="bg-red-600 text-white px-6 py-4">
+                <div className="bg-blue-600 text-white px-6 py-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <AlertTriangle className="w-6 h-6" />
                       <div>
                         <h1 className="text-lg font-semibold">Report Incident</h1>
-                        <p className="text-sm text-red-100">Submit emergency report</p>
+                        <p className="text-sm text-blue-100">Submit emergency report</p>
                       </div>
                     </div>
                     <button
                       onClick={() => setShowIncidentModal(false)}
-                      className="p-2 hover:bg-red-500 rounded-lg transition-colors"
+                      className="p-2 hover:bg-blue-500 rounded-lg transition-colors"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -506,7 +609,7 @@ export default function OfficerDashboard() {
                 {/* Upload Area */}
                 <div 
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-xl py-8 text-center hover:border-red-400 hover:bg-red-50 cursor-pointer transition-colors"
+                  className="border-2 border-dashed border-gray-300 rounded-xl py-8 text-center hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-colors"
                 >
                   <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-600">Click to upload photo</p>
@@ -531,8 +634,8 @@ export default function OfficerDashboard() {
                             <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
                           </div>
                         ) : (
-                          <div className="aspect-square rounded-lg bg-red-100 flex items-center justify-center">
-                            <FileText className="w-8 h-8 text-red-600" />
+                          <div className="aspect-square rounded-lg bg-blue-100 flex items-center justify-center">
+                            <FileText className="w-8 h-8 text-blue-600" />
                           </div>
                         )}
                         <button
@@ -541,7 +644,7 @@ export default function OfficerDashboard() {
                             e.stopPropagation();
                             removeFile(file.id);
                           }}
-                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -558,7 +661,7 @@ export default function OfficerDashboard() {
                 {/* Incident Title */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Incident Title <span className="text-red-500">*</span>
+                    Incident Title <span className="text-blue-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -573,7 +676,7 @@ export default function OfficerDashboard() {
                 {/* Incident Type Dropdown */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Incident Type <span className="text-red-500">*</span>
+                    Incident Type <span className="text-blue-500">*</span>
                   </label>
                   <div className="relative">
                     <select
@@ -594,7 +697,7 @@ export default function OfficerDashboard() {
                 {/* Severity Level */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Severity Level <span className="text-red-500">*</span>
+                    Severity Level <span className="text-blue-500">*</span>
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {['low', 'medium', 'high', 'critical'].map((level) => (
@@ -604,7 +707,7 @@ export default function OfficerDashboard() {
                         onClick={() => setIncidentSeverity(level as SeverityLevel)}
                         className={`py-2.5 px-3 border-2 rounded-lg text-sm font-medium transition-all ${
                           incidentSeverity === level
-                            ? 'border-green-500 bg-green-50 text-green-700'
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
                             : 'border-gray-300 text-gray-600 hover:bg-gray-50'
                         }`}
                       >
@@ -617,7 +720,7 @@ export default function OfficerDashboard() {
                 {/* Description */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Description <span className="text-red-500">*</span>
+                    Description <span className="text-blue-500">*</span>
                   </label>
                   <textarea
                     value={incidentDescription}
@@ -632,14 +735,14 @@ export default function OfficerDashboard() {
                 {/* Polling Center ID */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Polling Center ID <span className="text-red-500">*</span>
+                    Polling Center ID <span className="text-blue-500">*</span>
                   </label>
                   <input
                     type="text"
-                    value={incidentLocation || pollingCenterId}
-                    onChange={(e) => setIncidentLocation(e.target.value)}
-                    placeholder="e.g., DHK-PS-001"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={pollingCenterId || incidentLocation}
+                    readOnly
+                    disabled
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -648,14 +751,14 @@ export default function OfficerDashboard() {
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-green-600" />
+                    <MapPin className="w-5 h-5 text-blue-600" />
                     <span className="font-semibold text-gray-900">Location</span>
                   </div>
                   <button
                     type="button"
                     onClick={getGPSLocation}
                     disabled={isGettingLocation}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
                   >
                     <MapPin className="w-4 h-4" />
                     {isGettingLocation ? 'Getting...' : 'Get GPS Location'}
@@ -664,11 +767,11 @@ export default function OfficerDashboard() {
                 
                 <div className="text-sm text-gray-600">
                   <p className="font-medium text-gray-800">{gpsLocation ? 'GPS Location Captured ✓' : 'Auto-detected location'}</p>
-                  <p className={`${gpsLocation ? 'text-green-600 font-semibold' : 'text-gray-500'}`}>
+                  <p className={`${gpsLocation ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
                     Coordinates: {gpsLocation ? `${gpsLocation.lat.toFixed(6)}, ${gpsLocation.lng.toFixed(6)}` : '23.8103, 90.4125 (default)'}
                   </p>
                   {gpsLocation && (
-                    <p className="text-xs text-green-600 mt-1">
+                    <p className="text-xs text-blue-600 mt-1">
                       ✓ Your exact GPS location will be shared with law enforcement
                     </p>
                   )}
@@ -687,7 +790,7 @@ export default function OfficerDashboard() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="flex-1 px-6 py-3 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -713,8 +816,8 @@ export default function OfficerDashboard() {
           <div className="fixed inset-0 bg-gray-100 flex items-center justify-center z-50">
             <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md w-full mx-4 text-center">
               <div className="mb-6">
-                <div className="w-16 h-16 bg-green-100 rounded-full mx-auto flex items-center justify-center">
-                  <CheckCircle className="w-8 h-8 text-green-500" strokeWidth={2} />
+                <div className="w-16 h-16 bg-blue-100 rounded-full mx-auto flex items-center justify-center">
+                  <CheckCircle className="w-8 h-8 text-blue-500" strokeWidth={2} />
                 </div>
               </div>
               <h2 className="text-xl font-bold text-gray-900 mb-3">
@@ -740,8 +843,8 @@ export default function OfficerDashboard() {
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Header with Sliding Sidebar */}
-      <div className="bg-green-600 shadow-md">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <header className="bg-blue-600 text-white px-6 py-4 sticky top-0 z-40 shadow-md">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <OfficerSlidingSidebar 
               onReportIncident={() => setShowIncidentModal(true)}
@@ -753,21 +856,24 @@ export default function OfficerDashboard() {
               votesAlreadySubmitted={showVoteSubmittedView}
               submittedIncidentsCount={submittedIncidents.length}
             />
-            <h1 className="text-xl font-semibold text-white">Presiding Officer Dashboard - AmarVote</h1>
+            <div className="flex items-center gap-3 text-white">
+              <Image src="/images/logo-AmarVote.png" alt="AmarVote" width={34} height={34} className="rounded-lg bg-white/10 p-1" />
+              <h1 className="text-xl font-semibold">Presiding Officer Dashboard - AmarVote</h1>
+            </div>
           </div>
           <UserProfileControls role="officer" onLogout={handleLogout} showEditProfile={true} />
         </div>
-      </div>
+      </header>
 
       <div className="max-w-5xl mx-auto px-6 py-6">
         <div className="space-y-6">
               {/* Status Alert - Dynamic based on vote submission status */}
               {voteSubmissionEnabled ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-                  <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-blue-600 mt-0.5" />
                   <div>
-                    <p className="text-sm font-semibold text-green-900">Voting Period Has Ended</p>
-                    <p className="text-sm text-green-700">You can now submit vote counts from your polling center</p>
+                    <p className="text-sm font-semibold text-blue-900">Voting Period Has Ended</p>
+                    <p className="text-sm text-blue-700">You can now submit vote counts from your polling center</p>
                   </div>
                 </div>
               ) : (
@@ -784,7 +890,7 @@ export default function OfficerDashboard() {
 
               {/* Vote Entry Form */}
               <div id="vote-entry-form" className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-green-800 mb-6">Party-wise Vote Entry</h2>
+                <h2 className="text-lg font-semibold text-blue-800 mb-6">Party-wise Vote Entry</h2>
                 
                 {/* Locked Warning Banner */}
                 {!voteSubmissionEnabled && (
@@ -808,8 +914,25 @@ export default function OfficerDashboard() {
                       type="text"
                       value={pollingCenterId}
                       onChange={(e) => setPollingCenterId(e.target.value)}
-                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-500' : ''}`}
+                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-500' : ''}`}
                       readOnly
+                      disabled={!voteSubmissionEnabled}
+                    />
+                  </div>
+
+                  {/* Total Voters at Center */}
+                  <div>
+                    <label htmlFor="total-voters" className="block text-sm font-medium text-gray-700 mb-2">
+                      Total Voters in This Center
+                    </label>
+                    <input
+                      id="total-voters"
+                      type="number"
+                      min="0"
+                      value={totalVoters}
+                      onChange={(e) => setTotalVoters(Math.max(0, parseInt(e.target.value) || 0))}
+                      className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-500' : ''}`}
+                      placeholder="Enter total registered voters"
                       disabled={!voteSubmissionEnabled}
                     />
                   </div>
@@ -832,7 +955,7 @@ export default function OfficerDashboard() {
                             min="0"
                             value={voteCounts[party.id as keyof typeof voteCounts]}
                             onChange={(e) => handleVoteChange(party.id, e.target.value)}
-                            className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-center ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-400' : 'bg-gray-50'}`}
+                            className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center ${!voteSubmissionEnabled ? 'bg-gray-100 text-gray-400' : 'bg-gray-50'}`}
                             placeholder="0"
                             disabled={!voteSubmissionEnabled}
                           />
@@ -854,7 +977,7 @@ export default function OfficerDashboard() {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3.5 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
                 >
                   <Save className="w-5 h-5" />
                   Submit Vote Counts (One-Time Only)
@@ -913,7 +1036,7 @@ export default function OfficerDashboard() {
                             <span className="text-xs text-gray-500">{incident.id}</span>
                           </div>
                           <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                            incident.status === 'submitted' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                            incident.status === 'submitted' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'
                           }`}>
                             {incident.status}
                           </span>
@@ -957,18 +1080,18 @@ export default function OfficerDashboard() {
           <div className="relative min-h-screen flex items-start justify-center pt-10 pb-10 px-4">
             <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
               {/* Modal Header */}
-              <div className="bg-red-600 text-white px-6 py-4">
+              <div className="bg-blue-600 text-white px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <AlertTriangle className="w-6 h-6" />
                     <div>
                       <h1 className="text-lg font-semibold">Report Incident</h1>
-                      <p className="text-sm text-red-100">Submit emergency report</p>
+                      <p className="text-sm text-blue-100">Submit emergency report</p>
                     </div>
                   </div>
                   <button
                     onClick={() => setShowIncidentModal(false)}
-                    className="p-2 hover:bg-red-500 rounded-lg transition-colors"
+                    className="p-2 hover:bg-blue-500 rounded-lg transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -989,7 +1112,7 @@ export default function OfficerDashboard() {
               {/* Upload Area */}
               <div 
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-gray-300 rounded-xl py-8 text-center hover:border-red-400 hover:bg-red-50 cursor-pointer transition-colors"
+                className="border-2 border-dashed border-gray-300 rounded-xl py-8 text-center hover:border-blue-400 hover:bg-blue-50 cursor-pointer transition-colors"
               >
                 <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                 <p className="text-sm text-gray-600">Click to upload photo</p>
@@ -1014,8 +1137,8 @@ export default function OfficerDashboard() {
                           <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
                         </div>
                       ) : (
-                        <div className="aspect-square rounded-lg bg-red-100 flex items-center justify-center">
-                          <FileText className="w-8 h-8 text-red-600" />
+                        <div className="aspect-square rounded-lg bg-blue-100 flex items-center justify-center">
+                          <FileText className="w-8 h-8 text-blue-600" />
                         </div>
                       )}
                       <button
@@ -1024,7 +1147,7 @@ export default function OfficerDashboard() {
                           e.stopPropagation();
                           removeFile(file.id);
                         }}
-                        className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -1041,7 +1164,7 @@ export default function OfficerDashboard() {
               {/* Incident Title */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Incident Title <span className="text-red-500">*</span>
+                    Incident Title <span className="text-blue-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -1056,7 +1179,7 @@ export default function OfficerDashboard() {
               {/* Incident Type Dropdown */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Incident Type <span className="text-red-500">*</span>
+                    Incident Type <span className="text-blue-500">*</span>
                 </label>
                 <div className="relative">
                   <select
@@ -1077,7 +1200,7 @@ export default function OfficerDashboard() {
               {/* Severity Level */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Severity Level <span className="text-red-500">*</span>
+                    Severity Level <span className="text-blue-500">*</span>
                 </label>
                 <div className="grid grid-cols-4 gap-2">
                   {['low', 'medium', 'high', 'critical'].map((level) => (
@@ -1087,7 +1210,7 @@ export default function OfficerDashboard() {
                       onClick={() => setIncidentSeverity(level as SeverityLevel)}
                       className={`py-2.5 px-3 border-2 rounded-lg text-sm font-medium transition-all ${
                         incidentSeverity === level
-                          ? 'border-green-500 bg-green-50 text-green-700'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
                           : 'border-gray-300 text-gray-600 hover:bg-gray-50'
                       }`}
                     >
@@ -1100,7 +1223,7 @@ export default function OfficerDashboard() {
               {/* Description */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Description <span className="text-red-500">*</span>
+                    Description <span className="text-blue-500">*</span>
                 </label>
                 <textarea
                   value={incidentDescription}
@@ -1115,14 +1238,14 @@ export default function OfficerDashboard() {
               {/* Polling Center ID */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Polling Center ID <span className="text-red-500">*</span>
+                    Polling Center ID <span className="text-blue-500">*</span>
                 </label>
                 <input
                   type="text"
-                  value={incidentLocation || pollingCenterId}
-                  onChange={(e) => setIncidentLocation(e.target.value)}
-                  placeholder="e.g., DHK-PS-001"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  value={pollingCenterId || incidentLocation}
+                  readOnly
+                  disabled
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
                 />
               </div>
             </div>
@@ -1131,14 +1254,14 @@ export default function OfficerDashboard() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-green-600" />
+                  <MapPin className="w-5 h-5 text-blue-600" />
                   <span className="font-semibold text-gray-900">Location</span>
                 </div>
                 <button
                   type="button"
                   onClick={getGPSLocation}
                   disabled={isGettingLocation}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50"
                 >
                   <MapPin className="w-4 h-4" />
                   {isGettingLocation ? 'Getting...' : 'Get GPS Location'}
@@ -1147,11 +1270,11 @@ export default function OfficerDashboard() {
               
               <div className="text-sm text-gray-600">
                 <p className="font-medium text-gray-800">{gpsLocation ? 'GPS Location Captured ✓' : 'Auto-detected location'}</p>
-                <p className={`${gpsLocation ? 'text-green-600 font-semibold' : 'text-gray-500'}`}>
+                <p className={`${gpsLocation ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
                   Coordinates: {gpsLocation ? `${gpsLocation.lat.toFixed(6)}, ${gpsLocation.lng.toFixed(6)}` : '23.8103, 90.4125 (default)'}
                 </p>
                 {gpsLocation && (
-                  <p className="text-xs text-green-600 mt-1">
+                  <p className="text-xs text-blue-600 mt-1">
                     ✓ Your exact GPS location will be shared with law enforcement
                   </p>
                 )}
@@ -1167,11 +1290,11 @@ export default function OfficerDashboard() {
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex-1 px-6 py-3 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
                 {isSubmitting ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
@@ -1197,8 +1320,8 @@ export default function OfficerDashboard() {
           <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md w-full mx-4 text-center">
             {/* Success Icon */}
             <div className="mb-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full mx-auto flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-green-500" strokeWidth={2} />
+              <div className="w-16 h-16 bg-blue-100 rounded-full mx-auto flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-blue-500" strokeWidth={2} />
               </div>
             </div>
 
@@ -1255,11 +1378,11 @@ export default function OfficerDashboard() {
             {/* Modal Body */}
             <div className="p-6 space-y-6">
               {/* Status Banner */}
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
-                <CheckCircle className="w-5 h-5 text-green-600" />
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-blue-600" />
                 <div>
-                  <p className="text-sm font-semibold text-green-900">Report Submitted Successfully</p>
-                  <p className="text-xs text-green-700">Authorities have been notified and are reviewing this incident.</p>
+                  <p className="text-sm font-semibold text-blue-900">Report Submitted Successfully</p>
+                  <p className="text-xs text-blue-700">Authorities have been notified and are reviewing this incident.</p>
                 </div>
               </div>
 
@@ -1368,8 +1491,8 @@ export default function OfficerDashboard() {
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Report Timeline</p>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-4 h-4 text-blue-600" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-gray-900">Incident Reported</p>

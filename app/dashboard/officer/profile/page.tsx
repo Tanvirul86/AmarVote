@@ -143,7 +143,7 @@ export default function OfficerProfileEditPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-green-600 text-white px-6 py-4 shadow-md">
+      <header className="bg-blue-600 text-white px-6 py-4 sticky top-0 z-40 shadow-md">
         <div className="flex items-center gap-4">
           <Link 
             href="/dashboard/officer"
@@ -153,17 +153,17 @@ export default function OfficerProfileEditPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold">Edit Profile</h1>
-            <p className="text-green-100 text-sm">Update your photo and phone number</p>
+            <p className="text-blue-100 text-sm">Update your photo and phone number</p>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-8">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <form onSubmit={handleSave}>
             {/* Profile Picture Section */}
-            <div className="bg-gradient-to-br from-green-600 to-green-700 px-8 py-10 text-white">
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 px-8 py-10 text-white">
               <h2 className="text-xl font-semibold mb-6">Profile Picture</h2>
               <div className="flex items-center gap-8">
                 {/* Current/Preview Image */}
@@ -183,7 +183,7 @@ export default function OfficerProfileEditPage() {
                     <button
                       type="button"
                       onClick={handleRemoveImage}
-                      className="absolute -top-2 -right-2 bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition-colors shadow-lg"
+                      className="absolute -top-2 -right-2 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors shadow-lg"
                       title="Remove image"
                     >
                       <X className="w-4 h-4" />
@@ -212,7 +212,7 @@ export default function OfficerProfileEditPage() {
                     />
                     <label
                       htmlFor="profileImageUpload"
-                      className="inline-flex items-center gap-2 bg-white text-green-600 font-semibold px-5 py-2.5 rounded-lg hover:bg-green-50 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-2 bg-white text-blue-600 font-semibold px-5 py-2.5 rounded-lg hover:bg-blue-50 transition-colors cursor-pointer"
                     >
                       <Camera className="w-5 h-5" />
                       {profileImage ? 'Change Picture' : 'Choose Picture'}
@@ -258,14 +258,14 @@ export default function OfficerProfileEditPage() {
                 </div>
                 <div>
                   <label className="block text-gray-700 font-medium mb-2">
-                    Phone Number <span className="text-green-600">*</span>
+                    Phone Number <span className="text-blue-600">*</span>
                   </label>
                   <input
                     type="tel"
                     name="phone"
                     value={profileData.phone}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -350,7 +350,7 @@ export default function OfficerProfileEditPage() {
                 </Link>
                 <button
                   type="submit"
-                  className="flex-1 bg-green-600 text-white font-semibold py-3.5 px-6 rounded-xl hover:bg-green-700 transition-colors shadow-md flex items-center justify-center gap-2"
+                  className="flex-1 bg-blue-600 text-white font-semibold py-3.5 px-6 rounded-xl hover:bg-blue-700 transition-colors shadow-md flex items-center justify-center gap-2"
                 >
                   <Save className="w-5 h-5" />
                   Save Changes
