@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import UserProfileControls from '@/components/shared/UserProfileControls';
-import { AlertTriangle, Clock, CheckCircle, MapPin, ArrowLeft, X, Menu } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle, MapPin, ArrowLeft, X, Menu, Home } from 'lucide-react';
 
 export default function PoliceIncidentsPage() {
   const router = useRouter();
@@ -70,28 +71,30 @@ export default function PoliceIncidentsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-red-600 text-white px-6 py-4 flex items-center justify-between shadow-md">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-all duration-200"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
+      <header className="bg-red-600 text-white px-6 py-4 sticky top-0 z-40 shadow-md">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-all duration-200"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
 
-        <h1 className="text-xl font-semibold">All Incidents</h1>
-        <UserProfileControls role="police" showEditProfile={true} />
-      </div>
+          <h1 className="text-xl font-semibold">All Incidents</h1>
+          <UserProfileControls role="police" showEditProfile={true} />
+        </div>
+      </header>
 
       {/* Sliding Sidebar Menu */}
       <>
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity duration-300"
+            className="fixed inset-0 bg-black bg-opacity-50 z-30 transition-opacity duration-300"
             onClick={() => setSidebarOpen(false)}
           ></div>
         )}
         
-        <div className={`fixed inset-y-0 left-0 w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out ${
+        <div className={`fixed inset-0 left-0 top-0 w-80 bg-white shadow-2xl z-40 transform transition-transform duration-300 ease-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}>
           <div className="p-4 flex items-center justify-between border-b border-gray-200 bg-white">
@@ -105,16 +108,41 @@ export default function PoliceIncidentsPage() {
           </div>
 
           <nav className="p-4 space-y-2">
-            <button
-              onClick={() => { setSidebarOpen(false); router.push('/dashboard/police'); }}
-              className="w-full text-left flex items-start gap-3 p-4 rounded-lg hover:bg-red-50 transition-colors"
+            <Link
+              href="/dashboard/police"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-start gap-3 p-4 rounded-lg hover:bg-red-50 transition-colors"
             >
-              <ArrowLeft className="w-5 h-5 text-red-600 mt-1" />
+              <Home className="w-5 h-5 text-red-600 mt-1" />
               <div>
-                <div className="text-base font-semibold text-gray-900">Back to Dashboard</div>
+                <div className="text-base font-semibold text-gray-900">Dashboard</div>
                 <div className="text-sm text-gray-500">Main overview</div>
               </div>
-            </button>
+            </Link>
+
+            <Link
+              href="/dashboard/police/incidents"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-start gap-3 p-4 rounded-lg hover:bg-red-50 transition-colors border-2 border-red-500 bg-red-50"
+            >
+              <AlertTriangle className="w-5 h-5 text-red-600 mt-1" />
+              <div>
+                <div className="text-base font-semibold text-gray-900">View All Incidents</div>
+                <div className="text-sm text-gray-500">All reported incidents</div>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/police/map"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-start gap-3 p-4 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              <MapPin className="w-5 h-5 text-red-600 mt-1" />
+              <div>
+                <div className="text-base font-semibold text-gray-900">View Map</div>
+                <div className="text-sm text-gray-500">Live incidents</div>
+              </div>
+            </Link>
           </nav>
         </div>
       </>

@@ -107,7 +107,7 @@ export default function ProfileEditPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-red-600 text-white px-6 py-4 shadow-md">
+      <header className="bg-red-600 text-white px-6 py-4 sticky top-0 z-40 shadow-md">
         <div className="flex items-center gap-4">
           <Link 
             href="/dashboard/police"

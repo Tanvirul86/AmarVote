@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, AlertTriangle, Clock, Bell, X } from 'lucide-react';
+import { ArrowLeft, MapPin, AlertTriangle, Clock, Bell, X, Menu, Home } from 'lucide-react';
+import UserProfileControls from '@/components/shared/UserProfileControls';
 
 // Import Leaflet types
 declare global {
@@ -15,6 +16,7 @@ export default function MapPage() {
   const [incidents, setIncidents] = useState<any[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
   const [notification, setNotification] = useState<any | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const mapRef = useRef<any>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -230,26 +232,93 @@ export default function MapPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-red-600 text-white px-6 py-4 flex items-center justify-between shadow-md">
-        <div className="flex items-center gap-4">
-          <Link 
-            href="/dashboard/police"
-            className="hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold">Live Incident Map</h1>
-            <p className="text-red-100 text-sm">Real-time incident tracking</p>
+      <header className="bg-red-600 text-white px-6 py-4 sticky top-0 z-40 shadow-md">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-all duration-200"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold">Live Incident Map</h1>
+              <p className="text-red-100 text-sm">Real-time incident tracking</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-white bg-opacity-20 px-4 py-2 rounded-lg">
+              <Bell className="w-5 h-5" />
+              <span className="font-semibold">{incidents.length} Active</span>
+            </div>
+            <UserProfileControls role="police" showEditProfile={true} />
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-white bg-opacity-20 px-4 py-2 rounded-lg">
-            <Bell className="w-5 h-5" />
-            <span className="font-semibold">{incidents.length} Active</span>
+      </header>
+
+      {/* Sliding Sidebar Menu */}
+      <>
+        {/* Backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-30 transition-opacity duration-300"
+            onClick={() => setSidebarOpen(false)}
+          ></div>
+        )}
+        
+        {/* Sidebar */}
+        <div className={`fixed inset-0 left-0 top-0 w-80 bg-white shadow-2xl z-40 transform transition-transform duration-300 ease-out ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+          <div className="p-4 flex items-center justify-between border-b border-gray-200 bg-white">
+            <h4 className="font-semibold text-lg">Menu</h4>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
+
+          <nav className="p-4 space-y-2">
+            <Link
+              href="/dashboard/police"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-start gap-3 p-4 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              <Home className="w-5 h-5 text-red-600 mt-1" />
+              <div>
+                <div className="text-base font-semibold text-gray-900">Dashboard</div>
+                <div className="text-sm text-gray-500">Main overview</div>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/police/incidents"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-start gap-3 p-4 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              <AlertTriangle className="w-5 h-5 text-red-600 mt-1" />
+              <div>
+                <div className="text-base font-semibold text-gray-900">View All Incidents</div>
+                <div className="text-sm text-gray-500">All reported incidents</div>
+              </div>
+            </Link>
+
+            <Link
+              href="/dashboard/police/map"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-start gap-3 p-4 rounded-lg hover:bg-red-50 transition-colors border-2 border-red-500 bg-red-50"
+            >
+              <MapPin className="w-5 h-5 text-red-600 mt-1" />
+              <div>
+                <div className="text-base font-semibold text-gray-900">View Map</div>
+                <div className="text-sm text-gray-500">Live incidents</div>
+              </div>
+            </Link>
+          </nav>
         </div>
-      </div>
+      </>
 
       {/* Notification Toast */}
       {notification && (
