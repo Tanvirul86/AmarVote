@@ -20,32 +20,38 @@ export default function PoliceDashboard() {
   const [showAcknowledgeModal, setShowAcknowledgeModal] = useState(false);
   const [acknowledgeIncidentId, setAcknowledgeIncidentId] = useState<string | null>(null);
   const [handlingNotes, setHandlingNotes] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load officer-reported incidents from localStorage (only real data)
+  // Load incidents from database
   useEffect(() => {
-    const loadIncidents = () => {
-      const stored = localStorage.getItem('reportedIncidents');
-      let incidents: any[] = [];
-      
-      if (stored && stored.length > 0) {
-        incidents = JSON.parse(stored).map((inc: any) => ({
-          ...inc,
-          gpsLocation: inc.gpsLocation || { lat: 23.8103, lng: 90.4125 },
-          coordinates: inc.gpsLocation || inc.coordinates || { lat: 23.8103, lng: 90.4125 },
-        }));
+    const loadIncidents = async () => {
+      try {
+        const response = await fetch('/api/incidents');
+        if (response.ok) {
+          const data = await response.json();
+          const incidents = (data.incidents || []).map((inc: any) => ({
+            ...inc,
+            id: inc._id,
+            gpsLocation: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
+            coordinates: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
+          }));
+          
+          setOfficerIncidents(incidents);
+          setAllIncidentsList(incidents);
+          
+          // Filter active unacknowledged incidents
+          const unacknowledged = incidents.filter((inc: any) => inc.status !== 'Resolved' && inc.status !== 'Dismissed');
+          setActiveUnacknowledgedIncidents(unacknowledged);
+        }
+      } catch (error) {
+        console.error('Error loading incidents:', error);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setOfficerIncidents(incidents);
-      
-      // Store all incidents in the history list
-      setAllIncidentsList(incidents);
-      
-      // Filter active unacknowledged incidents
-      const unacknowledged = incidents.filter((inc: any) => inc.status !== 'acknowledged');
-      setActiveUnacknowledgedIncidents(unacknowledged);
     };
+    
     loadIncidents();
-    const interval = setInterval(loadIncidents, 3000);
+    const interval = setInterval(loadIncidents, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -59,7 +65,7 @@ export default function PoliceDashboard() {
     setShowAcknowledgeModal(true);
   };
 
-  const handleConfirmAcknowledge = () => {
+  const handleConfirmAcknowledge = async () => {
     if (!acknowledgeIncidentId) return;
 
     if (handlingNotes.trim().length === 0) {
@@ -73,24 +79,42 @@ export default function PoliceDashboard() {
       return;
     }
 
-    const updatedIncidents = officerIncidents.map(incident => {
-      if (incident.id === acknowledgeIncidentId) {
-        return { 
-          ...incident, 
-          status: 'acknowledged', 
-          acknowledgedAt: new Date().toISOString(),
-          lawEnforcementNotes: handlingNotes,
-          acknowledgedBy: 'Law Enforcement Officer'
-        };
+    try {
+      const response = await fetch(`/api/incidents`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: acknowledgeIncidentId,
+          status: 'Under Investigation',
+          notes: handlingNotes,
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh incidents from database
+        const fetchResponse = await fetch('/api/incidents');
+        if (fetchResponse.ok) {
+          const data = await fetchResponse.json();
+          const incidents = (data.incidents || []).map((inc: any) => ({
+            ...inc,
+            id: inc._id,
+            gpsLocation: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
+            coordinates: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
+          }));
+          setOfficerIncidents(incidents);
+        }
+        
+        setShowAcknowledgeModal(false);
+        setAcknowledgeIncidentId(null);
+        setHandlingNotes('');
+        alert('Incident acknowledged successfully!');
+      } else {
+        alert('Failed to acknowledge incident');
       }
-      return incident;
-    });
-    setOfficerIncidents(updatedIncidents);
-    localStorage.setItem('reportedIncidents', JSON.stringify(updatedIncidents));
-    setShowAcknowledgeModal(false);
-    setAcknowledgeIncidentId(null);
-    setHandlingNotes('');
-    alert('Incident acknowledged successfully!');
+    } catch (error) {
+      console.error('Error acknowledging incident:', error);
+      alert('An error occurred');
+    }
   };
 
   const handleNavigate = (incident: any) => {
@@ -316,11 +340,11 @@ export default function PoliceDashboard() {
                         </span>
                         <span className="text-gray-600 font-semibold">{incident.id}</span>
                         <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-md ml-auto">
-                          🆕 {incident.reportedBy || 'Officer'}
+                          🆕 {incident.reportedBy?.name || 'Officer'}
                         </span>
                       </div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {incident.type.charAt(0).toUpperCase() + incident.type.slice(1)} Incident
+                        {incident.type ? incident.type.charAt(0).toUpperCase() + incident.type.slice(1) : 'Unknown'} Incident
                       </h3>
                       <p className="text-gray-600 text-sm mb-4">{incident.description}</p>
                       <div className="grid grid-cols-3 gap-4 mb-4">
@@ -341,7 +365,7 @@ export default function PoliceDashboard() {
                         <div className="flex items-start gap-2">
                           <AlertTriangle className="w-5 h-5 text-gray-500 mt-0.5" />
                           <div>
-                            <p className="font-semibold text-gray-900">{incident.type.charAt(0).toUpperCase() + incident.type.slice(1)}</p>
+                            <p className="font-semibold text-gray-900">{incident.type ? incident.type.charAt(0).toUpperCase() + incident.type.slice(1) : 'Unknown'}</p>
                             <p className="text-sm text-gray-500">Incident Type</p>
                           </div>
                         </div>

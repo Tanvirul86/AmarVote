@@ -8,37 +8,61 @@ import { ArrowLeft, User, Upload, Camera, Save, X } from 'lucide-react';
 export default function ProfileEditPage() {
   const router = useRouter();
   const [profileData, setProfileData] = useState({
-    fullName: 'Officer Rahman',
-    email: 'rahman@police.gov.bd',
-    phone: '+880 1712-345678',
-    badge: 'BD-DMP-15432',
-    station: 'Dhaka Metro',
-    district: 'Dhaka',
-    rank: 'Inspector',
+    fullName: '',
+    email: '',
+    phone: '',
+    badge: '',
+    station: '',
+    district: '',
+    rank: '',
   });
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load existing user data from localStorage
+  // Load user data from database
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('user');
-      if (stored) {
-        const user = JSON.parse(stored);
-        if (user.name) {
-          setProfileData(prev => ({
-            ...prev,
-            fullName: user.name,
-          }));
+    const loadUserData = async () => {
+      try {
+        const userIdFromStorage = localStorage.getItem('currentUserId');
+        if (!userIdFromStorage) {
+          router.push('/login?role=police');
+          return;
         }
-        if (user.avatar) {
-          setPreviewUrl(user.avatar);
+        
+        setUserId(userIdFromStorage);
+        
+        const response = await fetch('/api/users');
+        if (response.ok) {
+          const data = await response.json();
+          const user = (data.users || []).find((u: any) => u._id === userIdFromStorage);
+          
+          if (user) {
+            setProfileData({
+              fullName: user.name || '',
+              email: user.email || '',
+              phone: user.phone || '',
+              badge: user.serviceId || '',
+              station: user.location || '',
+              district: user.thana || '',
+              rank: user.rank || '',
+            });
+            
+            if (user.avatar) {
+              setPreviewUrl(user.avatar);
+            }
+          }
         }
+      } catch (error) {
+        console.error('Error loading user data:', error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (e) {
-      console.error('Error loading user data:', e);
-    }
-  }, []);
+    };
+    
+    loadUserData();
+  }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setProfileData({
@@ -88,16 +112,38 @@ export default function ProfileEditPage() {
         });
       }
       
-      // Save to localStorage
-      const userData = {
-        name: profileData.fullName,
-        role: 'Law Enforcement',
-        avatar: avatarDataUrl || '',
-      };
+      // Update user in database
+      const response = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: userId,
+          name: profileData.fullName,
+          phone: profileData.phone,
+          serviceId: profileData.badge,
+          rank: profileData.rank,
+          location: profileData.station,
+          avatar: avatarDataUrl || '',
+        }),
+      });
       
-      localStorage.setItem('user', JSON.stringify(userData));
-      alert('Profile updated successfully!');
-      router.push('/dashboard/police');
+      if (response.ok) {
+        // Update localStorage for UI
+        const userData = {
+          name: profileData.fullName,
+          role: 'Law Enforcement',
+          avatar: avatarDataUrl || '',
+          userId: userId,
+          phone: profileData.phone,
+          email: profileData.email,
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        alert('Profile updated successfully!');
+        router.push('/dashboard/police');
+      } else {
+        alert('Failed to save profile. Please try again.');
+      }
     } catch (error) {
       console.error('Error saving profile:', error);
       alert('Failed to save profile. Please try again.');

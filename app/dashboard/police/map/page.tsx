@@ -17,57 +17,52 @@ export default function MapPage() {
   const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
   const [notification, setNotification] = useState<any | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const mapRef = useRef<any>(null);
   const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
 
-  // Load real incidents from localStorage
+  // Load incidents from database
   useEffect(() => {
-    const loadIncidents = () => {
-      const stored = localStorage.getItem('reportedIncidents');
-      if (stored && stored !== '[]') {
-        try {
-          const parsedIncidents = JSON.parse(stored);
-          // Only map incidents if there are any
-          if (parsedIncidents && parsedIncidents.length > 0) {
-            // Filter out acknowledged incidents - only show active incidents
-            const activeIncidents = parsedIncidents.filter((inc: any) => inc.status !== 'acknowledged');
+    const loadIncidents = async () => {
+      try {
+        const response = await fetch('/api/incidents');
+        if (response.ok) {
+          const data = await response.json();
+          const activeIncidents = (data.incidents || []).filter((inc: any) => 
+            inc.status !== 'Resolved' && inc.status !== 'Dismissed'
+          );
+          
+          const mappedIncidents = activeIncidents.map((inc: any) => {
+            const lat = inc.coordinates?.lat || 23.8103;
+            const lng = inc.coordinates?.lng || 90.4125;
             
-            const mappedIncidents = activeIncidents.map((inc: any) => {
-              // Ensure GPS location is properly extracted
-              const lat = inc.gpsLocation?.lat || 23.8103;
-              const lng = inc.gpsLocation?.lng || 90.4125;
-              
-              return {
-                id: inc.id,
-                title: inc.description || inc.type,
-                location: inc.location,
-                lat: lat,
-                lng: lng,
-                priority: inc.severity.toUpperCase(),
-                time: new Date(inc.timestamp).toLocaleTimeString(),
-                distance: '0 km',
-                type: inc.type,
-                status: inc.status || 'pending',
-                severity: inc.severity,
-                gpsLocation: { lat, lng },
-              };
-            });
-            setIncidents(mappedIncidents);
-          } else {
-            setIncidents([]);
-          }
-        } catch (e) {
-          console.error('Error parsing incidents:', e);
-          setIncidents([]);
+            return {
+              id: inc._id,
+              title: inc.description || inc.title,
+              location: inc.location,
+              lat: lat,
+              lng: lng,
+              priority: inc.severity?.toUpperCase() || 'MEDIUM',
+              time: new Date(inc.reportedAt).toLocaleTimeString(),
+              distance: '0 km',
+              type: inc.title,
+              status: inc.status || 'Reported',
+              severity: inc.severity,
+              gpsLocation: { lat, lng },
+            };
+          });
+          setIncidents(mappedIncidents);
         }
-      } else {
-        setIncidents([]);
+      } catch (error) {
+        console.error('Error loading incidents:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
+    
     loadIncidents();
-    // Check for new incidents every 3 seconds
-    const interval = setInterval(loadIncidents, 3000);
+    const interval = setInterval(loadIncidents, 10000);
     return () => clearInterval(interval);
   }, []);
 

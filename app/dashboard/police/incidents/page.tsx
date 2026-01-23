@@ -13,30 +13,40 @@ export default function PoliceIncidentsPage() {
   const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'active' | 'acknowledged'>('ALL');
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load incidents from localStorage (only real officer reports)
+  // Load incidents from database
   useEffect(() => {
-    const loadIncidents = () => {
-      const stored = localStorage.getItem('reportedIncidents');
-      const officerIncidents = stored ? JSON.parse(stored).map((inc: any) => ({
-        ...inc,
-        gpsLocation: inc.gpsLocation || { lat: 23.8103, lng: 90.4125 },
-      })) : [];
-      
-      // Only show real officer-reported incidents
-      setIncidents(officerIncidents);
+    const loadIncidents = async () => {
+      try {
+        const response = await fetch('/api/incidents');
+        if (response.ok) {
+          const data = await response.json();
+          const officerIncidents = (data.incidents || []).map((inc: any) => ({
+            ...inc,
+            id: inc._id,
+            gpsLocation: inc.coordinates || { lat: 23.8103, lng: 90.4125 },
+          }));
+          
+          setIncidents(officerIncidents);
+        }
+      } catch (error) {
+        console.error('Error loading incidents:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
+    
     loadIncidents();
-
-    const interval = setInterval(loadIncidents, 3000);
+    const interval = setInterval(loadIncidents, 10000);
     return () => clearInterval(interval);
   }, []);
 
   const filteredIncidents = filterStatus === 'ALL' 
     ? incidents 
     : filterStatus === 'active'
-    ? incidents.filter(inc => inc.status !== 'acknowledged')
-    : incidents.filter(inc => inc.status === filterStatus);
+    ? incidents.filter(inc => inc.status !== 'Resolved' && inc.status !== 'Dismissed')
+    : incidents.filter(inc => inc.status === 'Under Investigation' || inc.status === 'Resolved');
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {

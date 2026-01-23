@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import { ArrowLeft, AlertTriangle, MapPin, Clock, User, X, Image as ImageIcon } from 'lucide-react';
-import { addAuditLog, AuditActions } from '@/lib/auditLog';
 
 export default function PoliceIncidentDetailsPage() {
   const router = useRouter();
@@ -19,30 +18,45 @@ export default function PoliceIncidentDetailsPage() {
   const [fetchedIncidentData, setFetchedIncidentData] = useState<any>(null);
 
   useEffect(() => {
-    // Load from localStorage only
-    const stored = localStorage.getItem('reportedIncidents');
-    if (stored) {
-      const incidents = JSON.parse(stored);
-      const found = incidents.find((inc: any) => inc.id === incidentId);
-      if (found) {
-        setIncident(found);
-        setFetchedIncidentData(found);
-        setHandlingNotes(found.lawEnforcementNotes || '');
-        setHasAcknowledged(found.status === 'acknowledged');
-
-        // Log incident view
-        const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
-        addAuditLog(
-          AuditActions.INCIDENT_VIEWED,
-          `Viewed ${found.type} incident (${found.severity} severity) - ${incidentId}`,
-          userInfo.name || 'Law Enforcement'
-        );
+    const loadIncident = async () => {
+      try {
+        const response = await fetch('/api/incidents');
+        if (response.ok) {
+          const data = await response.json();
+          const found = (data.incidents || []).find((inc: any) => inc._id === incidentId);
+          if (found) {
+            setIncident({
+              ...found,
+              id: found._id,
+            });
+            setFetchedIncidentData(found);
+            setHandlingNotes(found.notes || '');
+            setHasAcknowledged(found.status === 'Under Investigation' || found.status === 'Resolved');
+            
+            // Log incident view
+            await fetch('/api/audit-logs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                user: 'Law Enforcement',
+                action: 'INCIDENT_VIEWED',
+                details: `Viewed ${found.title} incident (${found.severity} severity) - ${incidentId}`,
+                ip: 'Client',
+              }),
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error loading incident:', error);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    
+    loadIncident();
   }, [incidentId]);
 
-  const handleAcknowledge = () => {
+  const handleAcknowledge = async () => {
     if (!incident) return;
 
     if (handlingNotes.trim().length === 0) {
@@ -56,40 +70,49 @@ export default function PoliceIncidentDetailsPage() {
       return;
     }
 
-    // Update incident with law enforcement notes
-    const updatedIncident = {
-      ...incident,
-      status: 'acknowledged',
-      lawEnforcementNotes: handlingNotes,
-      acknowledgedAt: new Date().toISOString(),
-      acknowledgedBy: 'Law Enforcement Officer',
-    };
+    try {
+      // Update incident status in database
+      const response = await fetch(`/api/incidents`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: incidentId,
+          status: 'Under Investigation',
+          notes: handlingNotes,
+        }),
+      });
 
-    // Update localStorage
-    const stored = localStorage.getItem('reportedIncidents');
-    if (stored) {
-      const incidents = JSON.parse(stored);
-      const index = incidents.findIndex((inc: any) => inc.id === incidentId);
-      if (index !== -1) {
-        incidents[index] = updatedIncident;
-        localStorage.setItem('reportedIncidents', JSON.stringify(incidents));
+      if (response.ok) {
+        const updatedData = await response.json();
+        setIncident({
+          ...incident,
+          status: 'Under Investigation',
+          notes: handlingNotes,
+        });
+        setFetchedIncidentData(updatedData.incident);
+        setHasAcknowledged(true);
+        setShowAcknowledgeModal(false);
+
+        // Log incident acknowledgement
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user: 'Law Enforcement',
+            action: 'INCIDENT_ACKNOWLEDGED',
+            details: `Acknowledged ${incident.title} incident (${incident.severity}) - ${incidentId}: ${handlingNotes.substring(0, 100)}`,
+            ip: 'Client',
+          }),
+        });
+
+        alert('Incident acknowledged successfully!');
+      } else {
+        alert('Failed to acknowledge incident');
       }
+    } catch (error) {
+      console.error('Error acknowledging incident:', error);
+      alert('An error occurred');
     }
-
-    setIncident(updatedIncident);
-    setFetchedIncidentData(updatedIncident);
-    setHasAcknowledged(true);
-    setShowAcknowledgeModal(false);
-
-    // Log incident acknowledgement
-    const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
-    addAuditLog(
-      AuditActions.INCIDENT_ACKNOWLEDGED,
-      `Acknowledged ${incident.type} incident (${incident.severity}) - ${incidentId}: ${handlingNotes.substring(0, 100)}`,
-      userInfo.name || 'Law Enforcement'
-    );
-
-    alert('Incident acknowledged successfully!');
   };
 
   if (loading) {
