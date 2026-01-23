@@ -6,8 +6,6 @@ import ShieldIcon from '@/components/shared/ShieldIcon';
 import UserProfileControls from '@/components/shared/UserProfileControls';
 import SlidingSidebar from '@/components/shared/SlidingSidebar';
 import NotificationBell from '@/components/shared/NotificationBell';
-import { getUsers, saveUsers, addUser, updateUserStatus, deleteUser, SystemUser } from '@/data/mockData';
-import { addAuditLog, AuditActions } from '@/lib/auditLog';
 import { 
   LogOut, 
   FileText, 
@@ -87,28 +85,28 @@ export default function UserManagementPage() {
 
   // Load users from shared store
   const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const refreshUsers = () => {
-    const loadedUsers = getUsers();
-    setUsers(loadedUsers.map(u => ({
-      id: u.id,
-      name: u.name,
-      email: u.email,
-      phone: u.phone,
-      role: u.role,
-      status: u.status,
-      location: u.location,
-      joinedDate: u.joinedDate,
-      lastActive: u.lastActive,
-      username: u.username,
-      password: u.password,
-      serviceId: u.serviceId,
-      rank: u.rank,
-      avatar: u.avatar,
-      nidDocument: u.nidDocument,
-      pollingCenterId: u.pollingCenterId,
-      pollingCenterName: u.pollingCenterName
-    })));
+  const refreshUsers = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/users');
+      if (response.ok) {
+        const data = await response.json();
+        // Map _id to id for compatibility
+        const mappedUsers = (data.users || []).map((user: any) => ({
+          ...user,
+          id: user._id,
+          joinedDate: user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown',
+          lastActive: user.lastActive || 'Never'
+        }));
+        setUsers(mappedUsers);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   useEffect(() => {
@@ -149,83 +147,133 @@ export default function UserManagementPage() {
   };
 
   // Add new user
-  const handleAddUser = () => {
+  const handleAddUser = async () => {
     if (!newUser.name || !newUser.email || !newUser.location || !newUser.password || !newUser.username) {
       alert('Please fill all fields');
       return;
     }
 
-    // Check if username already exists
-    const existingUsers = getUsers();
-    if (existingUsers.some(u => u.username.toLowerCase() === newUser.username.toLowerCase())) {
-      alert('Username already exists. Please choose a different username.');
-      return;
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: newUser.username,
+          password: newUser.password,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role,
+          status: 'Active',
+          location: newUser.location,
+          lastActive: 'Just now'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.error || 'Failed to add user');
+        return;
+      }
+
+      // Log user creation
+      const adminInfo = JSON.parse(localStorage.getItem('user') || '{}');
+      await fetch('/api/audit-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user: adminInfo.name || 'Admin',
+          action: 'USER_CREATED',
+          details: `Created ${newUser.role} account: ${newUser.name} (${newUser.username})`,
+          ip: 'Client',
+        }),
+      });
+
+      await refreshUsers();
+      setShowAddUserModal(false);
+      setNewUser({ name: '', email: '', role: 'Officer', location: '', password: '', username: '' });
+      alert(`User added successfully! Username: ${newUser.username}`);
+    } catch (error) {
+      console.error('Error adding user:', error);
+      alert('An error occurred while adding the user');
     }
-
-    // Add user to shared store
-    const createdUser = addUser({
-      username: newUser.username,
-      password: newUser.password,
-      name: newUser.name,
-      email: newUser.email,
-      role: newUser.role,
-      status: 'Active',
-      location: newUser.location,
-      joinedDate: new Date().toISOString().split('T')[0],
-      lastActive: 'Just now'
-    });
-
-    // Refresh from database
-    refreshUsers();
-
-    setShowAddUserModal(false);
-    setNewUser({ name: '', email: '', role: 'Officer', location: '', password: '', username: '' });
-    alert(`User added successfully! Username: ${newUser.username}`);
   };
 
   // Approve user
-  const handleApproveUser = (userId: string) => {
+  const handleApproveUser = async (userId: string) => {
     const user = users.find(u => u.id === userId);
     
-    // Update in shared store
-    updateUserStatus(userId, 'Active');
-    
-    // Log user approval
-    if (user) {
-      const adminInfo = JSON.parse(localStorage.getItem('user') || '{}');
-      addAuditLog(
-        AuditActions.USER_APPROVED,
-        `Approved ${user.role} account: ${user.name} (${user.username || user.email})`,
-        adminInfo.name || 'Admin'
-      );
+    try {
+      const response = await fetch(`/api/users`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: userId, status: 'Active' }),
+      });
+
+      if (!response.ok) {
+        alert('Failed to approve user');
+        return;
+      }
+
+      // Log user approval
+      if (user) {
+        const adminInfo = JSON.parse(localStorage.getItem('user') || '{}');
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user: adminInfo.name || 'Admin',
+            action: 'USER_APPROVED',
+            details: `Approved ${user.role} account: ${user.name} (${user.username || user.email})`,
+            ip: 'Client',
+          }),
+        });
+      }
+      
+      await refreshUsers();
+      alert('User approved successfully! They can now log in.');
+    } catch (error) {
+      console.error('Error approving user:', error);
+      alert('An error occurred while approving the user');
     }
-    
-    // Refresh from database
-    refreshUsers();
-    alert('User approved successfully! They can now log in.');
   };
 
   // Reject user
-  const handleRejectUser = (userId: string) => {
+  const handleRejectUser = async (userId: string) => {
     if (confirm('Are you sure you want to reject this user? This will delete their account.')) {
       const user = users.find(u => u.id === userId);
       
-      // Delete from shared store
-      deleteUser(userId);
+      try {
+        const response = await fetch(`/api/users?userId=${userId}`, {
+          method: 'DELETE',
+        });
 
-      // Log user rejection
-      if (user) {
-        const adminInfo = JSON.parse(localStorage.getItem('user') || '{}');
-        addAuditLog(
-          AuditActions.USER_REJECTED,
-          `Rejected and deleted ${user.role} account: ${user.name} (${user.username || user.email})`,
-          adminInfo.name || 'Admin'
-        );
+        if (!response.ok) {
+          alert('Failed to reject user');
+          return;
+        }
+
+        // Log user rejection
+        if (user) {
+          const adminInfo = JSON.parse(localStorage.getItem('user') || '{}');
+          await fetch('/api/audit-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user: adminInfo.name || 'Admin',
+              action: 'USER_REJECTED',
+              details: `Rejected and deleted ${user.role} account: ${user.name} (${user.username || user.email})`,
+              ip: 'Client',
+            }),
+          });
+        }
+        
+        await refreshUsers();
+        alert('User rejected and removed from the system.');
+      } catch (error) {
+        console.error('Error rejecting user:', error);
+        alert('An error occurred while rejecting the user');
       }
-      
-      // Refresh from database
-      refreshUsers();
-      alert('User rejected and removed from the system.');
     }
   };
 
@@ -241,16 +289,26 @@ export default function UserManagementPage() {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (userToDelete) {
-      // Delete from shared store
-      deleteUser(userToDelete);
-      
-      // Refresh from database
-      refreshUsers();
-      setShowDeleteModal(false);
-      setUserToDelete(null);
-      alert('User deleted successfully!');
+      try {
+        const response = await fetch(`/api/users?userId=${userToDelete}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          alert('Failed to delete user');
+          return;
+        }
+
+        await refreshUsers();
+        setShowDeleteModal(false);
+        setUserToDelete(null);
+        alert('User deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('An error occurred while deleting the user');
+      }
     }
   };
 
