@@ -5,7 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Users, Upload, X, Eye, Download } from 'lucide-react';
-import { registerLawEnforcementUser, getUsers } from '@/data/mockData';
 
 // Bangladesh Districts and Thanas
 const districtThanaMap: Record<string, string[]> = {
@@ -55,6 +54,7 @@ export default function RegisterPage() {
   });
   const [showCustomThana, setShowCustomThana] = useState(false);
   const [customThana, setCustomThana] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Get available thanas based on selected district
   const availableThanas = useMemo(() => {
@@ -264,7 +264,7 @@ export default function RegisterPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate email
@@ -293,34 +293,78 @@ export default function RegisterPage() {
       return;
     }
 
-    // Check if username already exists
-    const existingUsers = getUsers();
-    if (existingUsers.some(u => u.username.toLowerCase() === formData.username.toLowerCase())) {
-      alert('Username already exists. Please choose a different username.');
-      return;
+    setIsSubmitting(true);
+
+    try {
+      // Convert file to base64
+      let serviceCardBase64 = '';
+      if (selectedFile) {
+        try {
+          const reader = new FileReader();
+          serviceCardBase64 = await new Promise<string>((resolve, reject) => {
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(selectedFile);
+          });
+        } catch (err) {
+          console.error('Error reading file:', err);
+        }
+      }
+
+      // Register via API
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password,
+          email: formData.email,
+          name: formData.fullName,
+          phone: formData.phone,
+          role: 'Police',
+          serviceId: formData.serviceId,
+          rank: formData.rank,
+          location: `${formData.district} - ${formData.postedStation}`,
+          thana: formData.postedStation,
+          nidDocument: serviceCardBase64,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.error.includes('Username or email already exists')) {
+          alert('Username or email already exists. Please choose different credentials.');
+        } else {
+          alert(data.error || 'Registration failed. Please try again.');
+        }
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Log user registration
+      await fetch('/api/audit-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user: formData.username,
+          action: 'USER_CREATED',
+          details: `New Law Enforcement Officer registered: ${formData.fullName} (${formData.username}) - ${formData.rank} at ${formData.postedStation}`,
+          ip: 'System',
+        }),
+      });
+
+      setIsSubmitting(false);
+      router.push('/register/success');
+    } catch (error) {
+      console.error('Registration error:', error);
+      alert('An error occurred during registration. Please try again.');
+      setIsSubmitting(false);
     }
-
-    // Check if email already exists
-    if (existingUsers.some(u => u.email.toLowerCase() === formData.email.toLowerCase())) {
-      alert('Email already registered. Please use a different email.');
-      return;
-    }
-
-    // Register the user with Pending status
-    registerLawEnforcementUser({
-      fullName: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      serviceId: formData.serviceId,
-      postedStation: formData.postedStation,
-      district: formData.district,
-      rank: formData.rank,
-      username: formData.username,
-      password: formData.password
-    });
-
-    // Handle form submission and redirect to success page
-    router.push('/register/success');
   };
 
   return (

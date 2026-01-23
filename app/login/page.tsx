@@ -6,8 +6,6 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ShieldIcon from '@/components/shared/ShieldIcon';
 import { User, Lock, ArrowLeft, Users, AlertTriangle, Shield } from 'lucide-react';
-import { authenticateUser } from '@/data/mockData';
-import { addAuditLog, AuditActions } from '@/lib/auditLog';
 
 const BrandMark = () => (
   <div className="flex items-center justify-center gap-3 mb-6">
@@ -26,6 +24,7 @@ function LoginContent() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const roleParam = searchParams.get('role');
@@ -34,46 +33,83 @@ function LoginContent() {
     }
   }, [searchParams]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    // Use the new authentication system
-    const result = authenticateUser(username, password, role as 'admin' | 'officer' | 'police');
-    
-    if (result.success && result.user) {
-      // Successful login - persist minimal user info and redirect
-      try {
-        const displayRole = role === 'admin' ? 'BEC Admin' : role === 'police' ? 'Law Enforcement' : 'Presiding Officer';
-        
-        // Store current userId for profile lookup
-        localStorage.setItem('currentUserId', result.user.id);
-        
-        // Store user display info
-        localStorage.setItem('user', JSON.stringify({ 
-          name: result.user.name, 
-          role: displayRole, 
-          avatar: result.user.avatar || '',
-          userId: result.user.id,
-          phone: result.user.phone || '',
-          email: result.user.email
-        }));
+    setIsSubmitting(true);
 
-        // Store current user for audit logging
-        localStorage.setItem('currentUser', JSON.stringify({
-          username: result.user.username || result.user.email,
-          role: role
-        }));
+    try {
+      // Call login API
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          password,
+          role: role.charAt(0).toUpperCase() + role.slice(1), // Capitalize role
+        }),
+      });
 
-        // Log successful login
-        addAuditLog(
-          AuditActions.USER_LOGIN,
-          `${displayRole} logged in successfully`,
-          result.user.username || result.user.email
-        );
-      } catch (e) {
-        // ignore storage errors
+      const result = await response.json();
+
+      if (!response.ok) {
+        // Log failed login attempt
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user: username,
+            action: 'LOGIN_FAILED',
+            details: `Failed login attempt for username: ${username} (role: ${role})`,
+            ip: 'Client',
+          }),
+        });
+
+        setError(result.error || 'Invalid credentials. Please try again.');
+        setIsSubmitting(false);
+        return;
       }
+
+      // Successful login - persist user info
+      const user = result.user;
+      const displayRole = role === 'admin' ? 'BEC Admin' : role === 'police' ? 'Law Enforcement' : 'Presiding Officer';
+
+      // Store current userId for profile lookup
+      localStorage.setItem('currentUserId', user.id);
+
+      // Store user display info
+      localStorage.setItem('user', JSON.stringify({
+        name: user.name,
+        role: displayRole,
+        avatar: user.avatar || '',
+        userId: user.id,
+        phone: user.phone || '',
+        email: user.email
+      }));
+
+      // Store current user for audit logging
+      localStorage.setItem('currentUser', JSON.stringify({
+        username: user.username || user.email,
+        role: role
+      }));
+
+      // Log successful login
+      await fetch('/api/audit-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user: user.username || user.email,
+          action: 'USER_LOGIN',
+          details: `${displayRole} logged in successfully`,
+          ip: 'Client',
+        }),
+      });
 
       const redirectMap = {
         admin: '/dashboard/admin',
@@ -82,14 +118,10 @@ function LoginContent() {
       };
 
       router.push(redirectMap[role as keyof typeof redirectMap] || '/');
-    } else {
-      // Log failed login attempt
-      addAuditLog(
-        AuditActions.LOGIN_FAILED,
-        `Failed login attempt for username: ${username} (role: ${role})`,
-        username
-      );
-      setError(result.error || 'Invalid credentials. Please try again.');
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('An error occurred during login. Please try again.');
+      setIsSubmitting(false);
     }
   };
 

@@ -5,8 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Upload, X, UserPlus } from 'lucide-react';
-import { registerPresidingOfficerUser, getUsers } from '@/data/mockData';
-import { addAuditLog, AuditActions } from '@/lib/auditLog';
 
 // Bangladesh Divisions and Districts
 const divisionDistrictMap: Record<string, string[]> = {
@@ -193,67 +191,81 @@ export default function OfficerRegisterPage() {
     
     if (!validateForm()) return;
     
-    // Check if username already exists
-    const existingUsers = getUsers();
-    if (existingUsers.some(u => u.username.toLowerCase() === formData.username.toLowerCase())) {
-      setErrors(prev => ({ ...prev, username: 'Username already exists. Please choose a different username.' }));
-      return;
-    }
-
-    // Check if email already exists
-    if (existingUsers.some(u => u.email.toLowerCase() === formData.email.toLowerCase())) {
-      setErrors(prev => ({ ...prev, email: 'Email already registered. Please use a different email.' }));
-      return;
-    }
-
-    // Check if polling center ID is already registered
-    if (existingUsers.some(u => u.role === 'Officer' && u.pollingCenterId === formData.pollingCenterId)) {
-      setErrors(prev => ({ ...prev, pollingCenterId: 'This polling center already has a registered officer. Only one officer per polling center is allowed.' }));
-      return;
-    }
-    
     setIsSubmitting(true);
 
-    // Convert file to base64
-    let nidDocumentBase64 = '';
-    if (selectedFile) {
-      try {
-        const reader = new FileReader();
-        nidDocumentBase64 = await new Promise<string>((resolve, reject) => {
-          reader.onload = (e) => resolve(e.target?.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(selectedFile);
-        });
-      } catch (err) {
-        console.error('Error reading file:', err);
+    try {
+      // Convert file to base64
+      let nidDocumentBase64 = '';
+      if (selectedFile) {
+        try {
+          const reader = new FileReader();
+          nidDocumentBase64 = await new Promise<string>((resolve, reject) => {
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(selectedFile);
+          });
+        } catch (err) {
+          console.error('Error reading file:', err);
+        }
       }
+      
+      // Register via API
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          password: formData.password,
+          email: formData.email,
+          name: formData.fullName,
+          phone: formData.phone,
+          role: 'Officer',
+          pollingCenterName: formData.pollingCenterName,
+          pollingCenterId: formData.pollingCenterId,
+          location: `${formData.district} - ${formData.thana}`,
+          thana: formData.thana,
+          nidDocument: nidDocumentBase64,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.error.includes('Username or email already exists')) {
+          setErrors(prev => ({ 
+            ...prev, 
+            username: 'Username or email already exists. Please choose different credentials.' 
+          }));
+        } else {
+          alert(data.error || 'Registration failed. Please try again.');
+        }
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Log user registration
+      await fetch('/api/audit-logs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user: formData.username,
+          action: 'USER_CREATED',
+          details: `New Presiding Officer registered: ${formData.fullName} (${formData.username}) for polling center ${formData.pollingCenterName} (${formData.pollingCenterId})`,
+          ip: 'System',
+        }),
+      });
+
+      setIsSubmitting(false);
+      router.push('/register/officer/success');
+    } catch (error) {
+      console.error('Registration error:', error);
+      alert('An error occurred during registration. Please try again.');
+      setIsSubmitting(false);
     }
-    
-    // Register the user with Pending status
-    const newUser = registerPresidingOfficerUser({
-      fullName: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      employeeId: formData.nid,
-      pollingStation: formData.pollingCenterName,
-      pollingCenterId: formData.pollingCenterId,
-      district: formData.district,
-      thana: formData.thana,
-      designation: 'Presiding Officer',
-      username: formData.username,
-      password: formData.password,
-      nidDocument: nidDocumentBase64
-    });
-
-    // Log user registration
-    addAuditLog(
-      AuditActions.USER_CREATED,
-      `New Presiding Officer registered: ${formData.fullName} (${formData.username}) for polling center ${formData.pollingCenterName} (${formData.pollingCenterId})`,
-      'System'
-    );
-
-    setIsSubmitting(false);
-    router.push('/register/officer/success');
   };
 
   return (
