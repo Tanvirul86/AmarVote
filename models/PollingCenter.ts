@@ -46,6 +46,27 @@ export interface IPollingCenter extends Document {
     submittedAt: Date;
   };
   
+  // Vote submission history for audit trail
+  voteSubmissionHistory?: Array<{
+    submittedBy: {
+      userId: string;
+      name: string;
+      serviceId: string;
+    };
+    voteCounts: Array<{
+      partyName: string;
+      partySymbol: string;
+      votes: number;
+    }>;
+    totalVotes: number;
+    status: 'Submitted' | 'Verified' | 'Rejected' | 'Correction Requested';
+    verifiedBy?: string;
+    verifiedAt?: Date;
+    rejectionReason?: string;
+    correctionNotes?: string;
+    submittedAt: Date;
+  }>;
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -146,6 +167,40 @@ const PollingCenterSchema = new Schema<IPollingCenter>(
       correctionRequestedAt: Date,
       submittedAt: Date,
     },
+    
+    // Vote submission history for audit trail
+    voteSubmissionHistory: [{
+      submittedBy: {
+        userId: String,
+        name: String,
+        serviceId: String,
+      },
+      voteCounts: [{
+        partyName: {
+          type: String,
+          required: true,
+        },
+        partySymbol: String,
+        votes: {
+          type: Number,
+          required: true,
+          min: 0,
+        },
+      }],
+      totalVotes: {
+        type: Number,
+        min: 0,
+      },
+      status: {
+        type: String,
+        enum: ['Submitted', 'Verified', 'Rejected', 'Correction Requested'],
+      },
+      verifiedBy: String,
+      verifiedAt: Date,
+      rejectionReason: String,
+      correctionNotes: String,
+      submittedAt: Date,
+    }],
   },
   {
     timestamps: true,

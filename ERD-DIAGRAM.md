@@ -31,6 +31,7 @@ erDiagram
         string pollingCenterName
         string thana
         string nidDocument
+        Date deletedAt
         Date createdAt
         Date updatedAt
     }
@@ -40,7 +41,7 @@ erDiagram
         string title
         string description
         enum severity "Critical, High, Medium, Low"
-        enum status "Reported, In Progress, Resolved, Dismissed"
+        enum status "Reported, Under Investigation, Resolved, Dismissed"
         string location
         string pollingCenterId FK
         string pollingCenterName
@@ -71,7 +72,8 @@ erDiagram
         string action
         string details
         string ip
-        Date timestamp
+        Date createdAt
+        Date updatedAt
     }
 
     PollingCenter {
@@ -91,6 +93,7 @@ erDiagram
         Date pollingStartTime
         Date pollingEndTime
         object voteSubmission "submittedBy, voteCounts, totalVotes, status, verifiedBy, submittedAt"
+        array voteSubmissionHistory "history of all submissions for audit trail"
         Date createdAt
         Date updatedAt
     }

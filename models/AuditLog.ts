@@ -6,7 +6,6 @@ export interface IAuditLog extends Document {
   action: string;
   details: string;
   ip: string;
-  timestamp: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -32,11 +31,6 @@ const AuditLogSchema = new Schema<IAuditLog>(
       type: String,
       required: true,
     },
-    timestamp: {
-      type: Date,
-      default: Date.now,
-      required: true,
-    },
   },
   {
     timestamps: true,
@@ -44,8 +38,8 @@ const AuditLogSchema = new Schema<IAuditLog>(
 );
 
 // Create indexes for faster queries
-AuditLogSchema.index({ timestamp: -1 });
-AuditLogSchema.index({ user: 1, timestamp: -1 });
+AuditLogSchema.index({ createdAt: -1 });
+AuditLogSchema.index({ user: 1, createdAt: -1 });
 AuditLogSchema.index({ action: 1 });
 
 const AuditLog: Model<IAuditLog> =

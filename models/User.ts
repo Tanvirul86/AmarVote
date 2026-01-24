@@ -19,6 +19,7 @@ export interface IUser extends Document {
   pollingCenterName?: string;
   thana?: string;
   nidDocument?: string;
+  deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +49,7 @@ const UserSchema = new Schema<IUser>(
       unique: true,
       lowercase: true,
       trim: true,
+      match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email address'],
     },
     phone: {
       type: String,
@@ -82,6 +84,7 @@ const UserSchema = new Schema<IUser>(
     pollingCenterName: String,
     thana: String,
     nidDocument: String,
+    deletedAt: Date,
   },
   {
     timestamps: true,
@@ -92,6 +95,7 @@ const UserSchema = new Schema<IUser>(
 UserSchema.index({ email: 1 });
 UserSchema.index({ username: 1 });
 UserSchema.index({ role: 1, status: 1 });
+UserSchema.index({ pollingCenterId: 1, status: 1 });
 
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
 

@@ -21,10 +21,12 @@ export interface IIncident extends Document {
     role: string;
   };
   reportedAt: Date;
-  resolvedAt?: Date;
   assignedTo?: string;
-  images?: string[];
-  notes?: string;
+  assignedAt?: Date;
+  resolvedBy?: string;
+  resolvedAt?: Date;
+  resolutionNotes?: string;
+  attachments?: string[];
   
   // Notification fields
   notifyUsers?: string[]; // Array of user IDs to notify
@@ -90,10 +92,12 @@ const IncidentSchema = new Schema<IIncident>(
       type: Date,
       default: Date.now,
     },
-    resolvedAt: Date,
     assignedTo: String,
-    images: [String],
-    notes: String,
+    assignedAt: Date,
+    resolvedBy: String,
+    resolvedAt: Date,
+    resolutionNotes: String,
+    attachments: [String],
     
     // Notification fields
     notifyUsers: [String],
@@ -126,6 +130,7 @@ IncidentSchema.index({ status: 1, severity: 1 });
 IncidentSchema.index({ 'reportedBy.userId': 1 });
 IncidentSchema.index({ reportedAt: -1 });
 IncidentSchema.index({ pollingCenterId: 1 });
+IncidentSchema.index({ status: 1, assignedTo: 1 });
 
 const Incident: Model<IIncident> =
   mongoose.models.Incident || mongoose.model<IIncident>('Incident', IncidentSchema);
