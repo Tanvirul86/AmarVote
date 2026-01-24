@@ -26,25 +26,30 @@ export default function IncidentMapPage() {
   const markersRef = useRef<any[]>([]);
   const [incidents, setIncidents] = useState<any[]>([]);
 
-  // Load real incidents from localStorage
+  // Load real incidents from database
   useEffect(() => {
-    const loadIncidents = () => {
-      const stored = localStorage.getItem('reportedIncidents');
-      if (stored) {
-        const parsedIncidents = JSON.parse(stored).map((inc: any) => ({
-          ...inc,
-          severity: inc.severity.toUpperCase(),
-          lat: inc.gpsLocation?.lat || inc.coordinates?.lat || 23.8103,
-          lng: inc.gpsLocation?.lng || inc.coordinates?.lng || 90.4125,
-          division: inc.location || inc.division || 'Unknown',
-        }));
-        setIncidents(parsedIncidents);
-      } else {
+    const loadIncidents = async () => {
+      try {
+        const response = await fetch('/api/incidents');
+        if (response.ok) {
+          const data = await response.json();
+          const parsedIncidents = (data.incidents || []).map((inc: any) => ({
+            ...inc,
+            id: inc._id,
+            severity: inc.severity?.toUpperCase() || 'MEDIUM',
+            lat: inc.gpsLocation?.lat || inc.coordinates?.lat || 23.8103,
+            lng: inc.gpsLocation?.lng || inc.coordinates?.lng || 90.4125,
+            division: inc.location || inc.division || 'Unknown',
+          }));
+          setIncidents(parsedIncidents);
+        }
+      } catch (error) {
+        console.error('Error loading incidents:', error);
         setIncidents([]);
       }
     };
     loadIncidents();
-    const interval = setInterval(loadIncidents, 3000);
+    const interval = setInterval(loadIncidents, 5000);
     return () => clearInterval(interval);
   }, []);
 
