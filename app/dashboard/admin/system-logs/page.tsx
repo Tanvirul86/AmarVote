@@ -17,26 +17,34 @@ export default function SystemLogsPage() {
   const [userHover, setUserHover] = useState<{ x: number; y: number; content: string } | null>(null);
   const [logs, setLogs] = useState<AuditLog[]>([]);
 
-  // Load logs from localStorage on mount and when updated
+  // Load logs from database on mount and when updated
   useEffect(() => {
-    const loadLogs = () => {
-      const auditLogs = getAuditLogs();
-      setLogs(auditLogs);
+    const loadLogs = async () => {
+      try {
+        const response = await fetch('/api/audit-logs?limit=500');
+        if (response.ok) {
+          const data = await response.json();
+          const mappedLogs = (data.logs || []).map((log: any) => ({
+            timestamp: new Date(log.createdAt).toLocaleString(),
+            user: log.user,
+            action: log.action,
+            details: log.details,
+            ip: log.ip || 'N/A',
+          }));
+          setLogs(mappedLogs);
+        }
+      } catch (error) {
+        console.error('Error loading audit logs:', error);
+      }
     };
 
     loadLogs();
 
-    // Listen for log updates
-    const handleLogUpdate = () => {
-      loadLogs();
-    };
-
-    window.addEventListener('auditLogUpdated', handleLogUpdate);
-    window.addEventListener('storage', loadLogs);
+    // Refresh logs every 10 seconds
+    const interval = setInterval(loadLogs, 10000);
 
     return () => {
-      window.removeEventListener('auditLogUpdated', handleLogUpdate);
-      window.removeEventListener('storage', loadLogs);
+      clearInterval(interval);
     };
   }, []);
 
