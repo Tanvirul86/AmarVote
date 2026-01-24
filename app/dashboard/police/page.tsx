@@ -84,9 +84,9 @@ export default function PoliceDashboard() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: acknowledgeIncidentId,
+          incidentId: acknowledgeIncidentId,
           status: 'Under Investigation',
-          notes: handlingNotes,
+          resolutionNotes: handlingNotes,
         }),
       });
 
@@ -249,7 +249,7 @@ export default function PoliceDashboard() {
                 <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
                   <AlertTriangle className="w-6 h-6 text-red-600" />
                 </div>
-                <span className="text-red-600 font-bold text-2xl">{officerIncidents.filter(inc => inc.status !== 'acknowledged').length}</span>
+                <span className="text-red-600 font-bold text-2xl">{officerIncidents.filter(inc => inc.status === 'Reported' || inc.status === 'Under Investigation').length}</span>
               </div>
               <h3 className="text-gray-600 text-sm font-medium">Active Alerts</h3>
               <p className="text-xs text-gray-500 mt-1">Pending incidents</p>
@@ -260,7 +260,7 @@ export default function PoliceDashboard() {
                 <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
                   <Clock className="w-6 h-6 text-orange-600" />
                 </div>
-                <span className="text-orange-600 font-bold text-2xl">{officerIncidents.filter(inc => inc.severity === 'high' || inc.severity === 'critical').length}</span>
+                <span className="text-orange-600 font-bold text-2xl">{officerIncidents.filter(inc => inc.severity?.toLowerCase() === 'high' || inc.severity?.toLowerCase() === 'critical').length}</span>
               </div>
               <h3 className="text-gray-600 text-sm font-medium">High Priority</h3>
               <p className="text-xs text-gray-500 mt-1">Urgent response needed</p>
@@ -327,8 +327,8 @@ export default function PoliceDashboard() {
                     high: { bg: 'bg-orange-50', border: 'border-orange-300', badge: 'bg-orange-600', shadow: 'hover:shadow-orange-200' },
                     critical: { bg: 'bg-red-50', border: 'border-red-300', badge: 'bg-red-600', shadow: 'hover:shadow-red-200' },
                   };
-                  const colors = severityColors[incident.severity] || severityColors.medium;
-                  const incidentTime = new Date(incident.timestamp);
+                  const colors = severityColors[incident.severity?.toLowerCase()] || severityColors.medium;
+                  const incidentTime = new Date(incident.reportedAt || incident.createdAt);
                   const timeStr = incidentTime.toLocaleTimeString('en-US', { hour12: false });
                   const minutesAgo = Math.floor((Date.now() - incidentTime.getTime()) / 60000);
                   
@@ -336,7 +336,7 @@ export default function PoliceDashboard() {
                     <div key={incident.id} className={`${colors.bg} border ${colors.border} rounded-xl p-6 shadow-sm ${colors.shadow} hover:shadow-lg transition-all duration-300`}>
                       <div className="flex items-start gap-3 mb-4">
                         <span className={`${colors.badge} text-white font-bold text-xs px-3 py-1 rounded-md`}>
-                          {incident.severity.toUpperCase()}
+                          {incident.severity?.toUpperCase() || 'MEDIUM'}
                         </span>
                         <span className="text-gray-600 font-semibold">{incident.id}</span>
                         <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-md ml-auto">
@@ -344,7 +344,7 @@ export default function PoliceDashboard() {
                         </span>
                       </div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        {incident.type ? incident.type.charAt(0).toUpperCase() + incident.type.slice(1) : 'Unknown'} Incident
+                        {incident.title || 'Incident Report'}
                       </h3>
                       <p className="text-gray-600 text-sm mb-4">{incident.description}</p>
                       <div className="grid grid-cols-3 gap-4 mb-4">
@@ -365,8 +365,8 @@ export default function PoliceDashboard() {
                         <div className="flex items-start gap-2">
                           <AlertTriangle className="w-5 h-5 text-gray-500 mt-0.5" />
                           <div>
-                            <p className="font-semibold text-gray-900">{incident.type ? incident.type.charAt(0).toUpperCase() + incident.type.slice(1) : 'Unknown'}</p>
-                            <p className="text-sm text-gray-500">Incident Type</p>
+                            <p className="font-semibold text-gray-900">{incident.severity?.charAt(0).toUpperCase() + incident.severity?.slice(1).toLowerCase() || 'Medium'}</p>
+                            <p className="text-sm text-gray-500">Severity Level</p>
                           </div>
                         </div>
                       </div>
@@ -433,13 +433,13 @@ export default function PoliceDashboard() {
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <p className="text-sm text-gray-500 mb-1">Severity</p>
                   <p className={`font-semibold capitalize ${
-                    selectedIncident.severity === 'high' || selectedIncident.severity === 'critical'
+                    selectedIncident.severity?.toLowerCase() === 'high' || selectedIncident.severity?.toLowerCase() === 'critical'
                       ? 'text-red-600'
-                      : selectedIncident.severity === 'medium'
+                      : selectedIncident.severity?.toLowerCase() === 'medium'
                       ? 'text-orange-600'
                       : 'text-blue-600'
                   }`}>
-                    {selectedIncident.severity}
+                    {selectedIncident.severity || 'Medium'}
                   </p>
                 </div>
               </div>
@@ -466,18 +466,12 @@ export default function PoliceDashboard() {
                 </div>
               </div>
 
-              {/* Type */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Incident Type</h3>
-                <p className="text-gray-700 capitalize">{selectedIncident.type}</p>
-              </div>
-
               {/* Timestamp */}
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Reported Time</h3>
                 <div className="flex items-center gap-2 text-gray-700">
                   <Clock className="w-5 h-5" />
-                  <p>{new Date(selectedIncident.timestamp).toLocaleString()}</p>
+                  <p>{new Date(selectedIncident.reportedAt || selectedIncident.createdAt).toLocaleString()}</p>
                 </div>
               </div>
 
@@ -549,15 +543,15 @@ export default function PoliceDashboard() {
                     setShowDetailsModal(false);
                     handleAcknowledge(selectedIncident.id);
                   }}
-                  disabled={selectedIncident.status === 'acknowledged'}
+                  disabled={selectedIncident.status === 'Under Investigation' || selectedIncident.status === 'Resolved'}
                   className={`flex-1 font-semibold px-5 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 ${
-                    selectedIncident.status === 'acknowledged'
+                    selectedIncident.status === 'Under Investigation' || selectedIncident.status === 'Resolved'
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-green-600 text-white hover:bg-green-700'
                   }`}
                 >
                   <CheckCircle className="w-5 h-5" />
-                  {selectedIncident.status === 'acknowledged' ? 'Acknowledged' : 'Acknowledge & Add Notes'}
+                  {selectedIncident.status === 'Under Investigation' || selectedIncident.status === 'Resolved' ? 'Acknowledged' : 'Acknowledge & Add Notes'}
                 </button>
               </div>
             </div>

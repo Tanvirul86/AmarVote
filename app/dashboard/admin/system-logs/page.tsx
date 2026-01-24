@@ -154,7 +154,7 @@ export default function SystemLogsPage() {
               <div key={log.id} className="p-4">
                 <div className="grid grid-cols-12 gap-4 items-center">
                   <div className="col-span-3">
-                    <div className="text-sm font-medium">{log.timestamp}</div>
+                    <div className="text-sm font-medium">{new Date(log.createdAt || log.timestamp).toLocaleString()}</div>
                   </div>
 
                   <div className="col-span-2 flex items-center gap-3">

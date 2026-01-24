@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "ts-node --compiler-options {\\\"module\\\":\\\"commonjs\\\"} scripts/seedDatabase.ts"
+    "seed": "ts-node --compiler-options {\\\"module\\\":\\\"commonjs\\\"} scripts/seedDatabase.ts",
+    "cleanup": "ts-node --compiler-options {\\\"module\\\":\\\"commonjs\\\"} scripts/cleanupSampleData.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const skip = (pageNumber - 1) * limitNumber;
 
     const logs = await AuditLog.find(query)
-      .sort({ timestamp: -1 })
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limitNumber);
 
@@ -67,7 +67,6 @@ export async function POST(request: NextRequest) {
       action,
       details,
       ip,
-      timestamp: new Date(),
     });
 
     return NextResponse.json({ log }, { status: 201 });

@@ -45,11 +45,12 @@ export default function PoliceIncidentsPage() {
   const filteredIncidents = filterStatus === 'ALL' 
     ? incidents 
     : filterStatus === 'active'
-    ? incidents.filter(inc => inc.status !== 'Resolved' && inc.status !== 'Dismissed')
-    : incidents.filter(inc => inc.status === 'Under Investigation' || inc.status === 'Resolved');
+    ? incidents.filter(inc => inc.status === 'Reported' || inc.status === 'Under Investigation')
+    : incidents.filter(inc => inc.status === 'Resolved' || inc.status === 'Dismissed');
 
   const getSeverityColor = (severity: string) => {
-    switch (severity) {
+    const sev = severity?.toUpperCase();
+    switch (sev) {
       case 'CRITICAL': return 'bg-red-100 text-red-700 border-red-300';
       case 'HIGH': return 'bg-orange-100 text-orange-700 border-orange-300';
       case 'MEDIUM': return 'bg-yellow-100 text-yellow-700 border-yellow-300';
@@ -59,7 +60,8 @@ export default function PoliceIncidentsPage() {
   };
 
   const getSeverityBg = (severity: string) => {
-    switch (severity) {
+    const sev = severity?.toUpperCase();
+    switch (sev) {
       case 'CRITICAL': return 'bg-red-50 border-red-200';
       case 'HIGH': return 'bg-orange-50 border-orange-200';
       case 'MEDIUM': return 'bg-yellow-50 border-yellow-200';
@@ -161,7 +163,7 @@ export default function PoliceIncidentsPage() {
       <div className="p-6 max-w-6xl mx-auto">
         {/* Filter Buttons */}
         <div className="mb-6 flex flex-wrap gap-2">
-          {['ALL', 'active', 'acknowledged'].map((status) => (
+          {['ALL', 'active', 'resolved'].map((status) => (
             <button
               key={status}
               onClick={() => setFilterStatus(status as any)}
@@ -176,8 +178,8 @@ export default function PoliceIncidentsPage() {
                 ({status === 'ALL' 
                   ? incidents.length 
                   : status === 'active' 
-                  ? incidents.filter(inc => inc.status !== 'acknowledged').length
-                  : incidents.filter(inc => inc.status === status).length})
+                  ? incidents.filter(inc => inc.status === 'Reported' || inc.status === 'Under Investigation').length
+                  : incidents.filter(inc => inc.status === 'Resolved' || inc.status === 'Dismissed').length})
               </span>
             </button>
           ))}
@@ -189,7 +191,7 @@ export default function PoliceIncidentsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Active</p>
-                <p className="text-2xl font-bold text-red-600">{incidents.filter(inc => inc.status !== 'acknowledged').length}</p>
+                <p className="text-2xl font-bold text-red-600">{incidents.filter(inc => inc.status === 'Reported' || inc.status === 'Under Investigation').length}</p>
               </div>
               <AlertTriangle className="w-8 h-8 text-red-600 opacity-30" />
             </div>
@@ -198,8 +200,8 @@ export default function PoliceIncidentsPage() {
           <div className="bg-white rounded-lg border border-green-200 p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Acknowledged</p>
-                <p className="text-2xl font-bold text-green-600">{incidents.filter(inc => inc.status === 'acknowledged').length}</p>
+                <p className="text-sm text-gray-600">Resolved</p>
+                <p className="text-2xl font-bold text-green-600">{incidents.filter(inc => inc.status === 'Resolved' || inc.status === 'Dismissed').length}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-600 opacity-30" />
             </div>
@@ -221,9 +223,9 @@ export default function PoliceIncidentsPage() {
                   onClick={() => { setSelectedIncident(incident); setShowDetailsModal(true); }}
                   className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 ${getSeverityBg(incident.severity)}`}
                   style={{
-                    borderLeftColor: incident.severity === 'CRITICAL' ? '#dc2626' : 
-                                   incident.severity === 'HIGH' ? '#ea580c' :
-                                   incident.severity === 'MEDIUM' ? '#ca8a04' : '#3b82f6'
+                    borderLeftColor: incident.severity?.toUpperCase() === 'CRITICAL' ? '#dc2626' : 
+                                   incident.severity?.toUpperCase() === 'HIGH' ? '#ea580c' :
+                                   incident.severity?.toUpperCase() === 'MEDIUM' ? '#ca8a04' : '#3b82f6'
                   }}
                 >
                   <div className="flex items-start justify-between">
@@ -244,7 +246,7 @@ export default function PoliceIncidentsPage() {
                       </div>
                       <p className="text-sm text-gray-600">{incident.description}</p>
                       <p className="text-xs text-gray-500 mt-2">
-                        Reported: {new Date(incident.timestamp).toLocaleString()} by {incident.reportedBy || 'Unknown'}
+                        Reported: {new Date(incident.reportedAt || incident.createdAt).toLocaleString()} by {incident.reportedBy?.name || 'Unknown'}
                       </p>
                     </div>
                   </div>
@@ -311,11 +313,11 @@ export default function PoliceIncidentsPage() {
                 </div>
                 <div>
                   <label className="text-sm font-semibold text-gray-600">Reported By</label>
-                  <p className="text-gray-900">{selectedIncident.reportedBy}</p>
+                  <p className="text-gray-900">{selectedIncident.reportedBy?.name || 'Unknown'} ({selectedIncident.reportedBy?.role || 'N/A'})</p>
                 </div>
                 <div>
                   <label className="text-sm font-semibold text-gray-600">Time</label>
-                  <p className="text-gray-900">{new Date(selectedIncident.timestamp).toLocaleString()}</p>
+                  <p className="text-gray-900">{new Date(selectedIncident.reportedAt || selectedIncident.createdAt).toLocaleString()}</p>
                 </div>
               </div>
 

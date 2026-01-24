@@ -1,7 +1,7 @@
 // Audit Log Utility for tracking all user actions
 export interface AuditLog {
   id: string;
-  timestamp: string;
+  createdAt: string;
   user: string;
   action: string;
   details: string;
@@ -63,7 +63,7 @@ export function addAuditLog(action: string, details: string, user?: string): voi
     const logs = getAuditLogs();
     const newLog: AuditLog = {
       id: generateLogId(),
-      timestamp: formatTimestamp(),
+      createdAt: formatTimestamp(),
       user: username,
       action: action,
       details: details,

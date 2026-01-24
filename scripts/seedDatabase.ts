@@ -117,33 +117,7 @@ async function seedDatabase() {
       }
     }
 
-    // Create sample incident (to make collection visible)
-    const incidentCount = await Incident.countDocuments();
-    if (incidentCount === 0) {
-      await Incident.create({
-        title: 'Sample Incident',
-        description: 'This is a sample incident for testing purposes',
-        severity: 'Low',
-        status: 'Reported',
-        location: 'Gulshan High School',
-        pollingCenterId: 'PC-DHK-001',
-        pollingCenterName: 'Gulshan High School',
-        district: 'Dhaka',
-        thana: 'Gulshan',
-        reportedBy: {
-          userId: 'sample-user-id',
-          name: 'Sample Officer',
-          role: 'Officer',
-        },
-        reportedAt: new Date(),
-        // Notification fields
-        notifyRoles: ['Admin'],
-        priority: 'low',
-        isRead: false,
-        actionRequired: false,
-      });
-      console.log('✅ Created sample incident with notification');
-    }
+    // Incidents will be created by users - no sample data
 
     // Create sample audit log (to make collection visible)
     const auditCount = await AuditLog.countDocuments();
@@ -153,7 +127,6 @@ async function seedDatabase() {
         action: 'SYSTEM_INITIALIZED',
         details: 'Database initialized with seed data',
         ip: '127.0.0.1',
-        timestamp: new Date(),
       });
       console.log('✅ Created sample audit log');
     }

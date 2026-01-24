@@ -76,9 +76,9 @@ export default function PoliceIncidentDetailsPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: incidentId,
+          incidentId: incidentId,
           status: 'Under Investigation',
-          notes: handlingNotes,
+          resolutionNotes: handlingNotes,
         }),
       });
 
@@ -87,7 +87,7 @@ export default function PoliceIncidentDetailsPage() {
         setIncident({
           ...incident,
           status: 'Under Investigation',
-          notes: handlingNotes,
+          resolutionNotes: handlingNotes,
         });
         setFetchedIncidentData(updatedData.incident);
         setHasAcknowledged(true);
@@ -155,7 +155,8 @@ export default function PoliceIncidentDetailsPage() {
   }
 
   const getSeverityBg = (severity: string) => {
-    switch (severity) {
+    const sev = severity?.toUpperCase();
+    switch (sev) {
       case 'CRITICAL': return 'bg-red-100 text-red-700';
       case 'HIGH': return 'bg-orange-100 text-orange-700';
       case 'MEDIUM': return 'bg-yellow-100 text-yellow-700';
@@ -195,9 +196,9 @@ export default function PoliceIncidentDetailsPage() {
             {incident.severity} SEVERITY
           </span>
           <span className={`px-4 py-2 rounded text-sm font-bold ${
-            incident.status === 'acknowledged' ? 'bg-green-100 text-green-700' :
-            incident.status === 'resolved' ? 'bg-green-100 text-green-700' :
-            incident.status === 'responded' ? 'bg-blue-100 text-blue-700' :
+            incident.status === 'Resolved' ? 'bg-green-100 text-green-700' :
+            incident.status === 'Under Investigation' ? 'bg-blue-100 text-blue-700' :
+            incident.status === 'Dismissed' ? 'bg-gray-100 text-gray-700' :
             'bg-yellow-100 text-yellow-700'
           }`}>
             {incident.status.toUpperCase()}
@@ -280,16 +281,16 @@ export default function PoliceIncidentDetailsPage() {
             </div>
 
             {/* Law Enforcement Response - If Available */}
-            {fetchedIncidentData?.lawEnforcementNotes && (
+            {(fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes) && (
               <div className="bg-red-50 rounded-lg border-2 border-red-300 p-6">
                 <h2 className="text-lg font-semibold text-red-900 mb-4">Law Enforcement Response</h2>
                 <div className="bg-white rounded p-4 mb-3 border border-red-200">
-                  <p className="text-gray-900 whitespace-pre-wrap">{fetchedIncidentData.lawEnforcementNotes}</p>
+                  <p className="text-gray-900 whitespace-pre-wrap">{fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes}</p>
                 </div>
-                {fetchedIncidentData?.acknowledgedAt && (
+                {(fetchedIncidentData?.assignedAt || incident?.assignedAt) && (
                   <p className="text-xs text-red-700">
-                    <strong>Acknowledged:</strong> {new Date(fetchedIncidentData.acknowledgedAt).toLocaleString()}<br/>
-                    <strong>By:</strong> {fetchedIncidentData.acknowledgedBy || 'Law Enforcement Officer'}
+                    <strong>Acknowledged:</strong> {new Date(fetchedIncidentData?.assignedAt || incident?.assignedAt).toLocaleString()}<br/>
+                    <strong>By:</strong> {fetchedIncidentData?.assignedTo || incident?.assignedTo || 'Law Enforcement Officer'}
                   </p>
                 )}
               </div>
@@ -331,7 +332,7 @@ export default function PoliceIncidentDetailsPage() {
               </div>
               
               <p className="text-gray-900 font-semibold mb-1">Reported At</p>
-              <p className="text-gray-600 text-sm">{new Date(incident.timestamp).toLocaleString()}</p>
+              <p className="text-gray-600 text-sm">{new Date(incident.reportedAt || incident.createdAt).toLocaleString()}</p>
             </div>
 
             {/* Reported By */}
@@ -341,17 +342,17 @@ export default function PoliceIncidentDetailsPage() {
                 <h2 className="text-lg font-semibold text-gray-900">Reported By</h2>
               </div>
               
-              <p className="text-gray-900 font-semibold">{incident.reportedBy}</p>
-              <p className="text-sm text-gray-500">{incident.reportedByRole}</p>
+              <p className="text-gray-900 font-semibold">{incident.reportedBy?.name || 'Unknown'}</p>
+              <p className="text-sm text-gray-500">{incident.reportedBy?.role || 'N/A'}</p>
             </div>
 
             {/* Status Badge */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Current Status</h2>
               <div className={`px-4 py-3 rounded-lg text-center font-semibold capitalize ${
-                incident.status === 'acknowledged' ? 'bg-green-100 text-green-700' :
-                incident.status === 'resolved' ? 'bg-green-100 text-green-700' :
-                incident.status === 'responded' ? 'bg-blue-100 text-blue-700' :
+                incident.status === 'Resolved' ? 'bg-green-100 text-green-700' :
+                incident.status === 'Under Investigation' ? 'bg-blue-100 text-blue-700' :
+                incident.status === 'Dismissed' ? 'bg-gray-100 text-gray-700' :
                 'bg-yellow-100 text-yellow-700'
               }`}>
                 {incident.status}
