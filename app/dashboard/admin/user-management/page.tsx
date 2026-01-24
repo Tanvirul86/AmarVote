@@ -61,6 +61,8 @@ export default function UserManagementPage() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [showUserDetailModal, setShowUserDetailModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userToDelete, setUserToDelete] = useState<string | null>(null);
@@ -231,7 +233,8 @@ export default function UserManagementPage() {
       }
       
       await refreshUsers();
-      alert('User approved successfully! They can now log in.');
+      setSuccessMessage('User approved successfully! They can now log in.');
+      setShowSuccessModal(true);
     } catch (error) {
       console.error('Error approving user:', error);
       alert('An error occurred while approving the user');
@@ -304,7 +307,8 @@ export default function UserManagementPage() {
         await refreshUsers();
         setShowDeleteModal(false);
         setUserToDelete(null);
-        alert('User deleted successfully!');
+        setSuccessMessage('User deleted successfully.');
+        setShowSuccessModal(true);
       } catch (error) {
         console.error('Error deleting user:', error);
         alert('An error occurred while deleting the user');
@@ -1029,6 +1033,31 @@ export default function UserManagementPage() {
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mx-auto mb-4">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+            </div>
+            
+            <h2 className="text-2xl font-bold text-gray-800 text-center mb-2">Success!</h2>
+            <p className="text-gray-600 text-center mb-6">
+              {successMessage}
+            </p>
+
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                OK
               </button>
             </div>
           </div>

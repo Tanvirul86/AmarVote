@@ -31,12 +31,22 @@ function generateLogId(): string {
   return `LOG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
-// Get all logs from localStorage
-export function getAuditLogs(): AuditLog[] {
-  if (typeof window === 'undefined') return [];
+// Get all logs from database
+export async function getAuditLogs(): Promise<AuditLog[]> {
   try {
-    const stored = localStorage.getItem('auditLogs');
-    return stored ? JSON.parse(stored) : [];
+    const response = await fetch('/api/audit-logs?limit=500');
+    if (response.ok) {
+      const data = await response.json();
+      return (data.logs || []).map((log: any) => ({
+        id: log._id,
+        createdAt: new Date(log.createdAt).toLocaleString(),
+        user: log.user,
+        action: log.action,
+        details: log.details,
+        ip: log.ip || 'N/A',
+      }));
+    }
+    return [];
   } catch (error) {
     console.error('Error loading audit logs:', error);
     return [];
@@ -44,52 +54,40 @@ export function getAuditLogs(): AuditLog[] {
 }
 
 // Add a new log entry
-export function addAuditLog(action: string, details: string, user?: string): void {
-  if (typeof window === 'undefined') return;
-  
+export async function addAuditLog(action: string, details: string, user?: string): Promise<void> {
   try {
     // Get current user if not provided
     let username = user;
-    if (!username) {
-      const currentUser = localStorage.getItem('currentUser');
+    if (!username && typeof window !== 'undefined') {
+      const currentUser = localStorage.getItem('user');
       if (currentUser) {
         const userData = JSON.parse(currentUser);
-        username = userData.username || userData.email || 'Unknown';
+        username = userData.name || userData.username || userData.email || 'Unknown';
       } else {
         username = 'System';
       }
     }
 
-    const logs = getAuditLogs();
-    const newLog: AuditLog = {
-      id: generateLogId(),
-      createdAt: formatTimestamp(),
-      user: username,
-      action: action,
-      details: details,
-      ip: getClientIP(),
-    };
-
-    // Add to beginning of array (newest first)
-    logs.unshift(newLog);
-
-    // Keep only last 1000 logs to prevent excessive storage
-    const trimmedLogs = logs.slice(0, 1000);
-
-    localStorage.setItem('auditLogs', JSON.stringify(trimmedLogs));
-
-    // Dispatch custom event so other components can listen
-    window.dispatchEvent(new CustomEvent('auditLogUpdated', { detail: newLog }));
+    // Send log to database
+    await fetch('/api/audit-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user: username || 'System',
+        action: action,
+        details: details,
+        ip: getClientIP(),
+      }),
+    });
   } catch (error) {
     console.error('Error adding audit log:', error);
   }
 }
 
 // Clear all logs (admin only)
-export function clearAuditLogs(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.removeItem('auditLogs');
-  window.dispatchEvent(new CustomEvent('auditLogUpdated'));
+export async function clearAuditLogs(): Promise<void> {
+  // This would require a DELETE endpoint in the API
+  console.warn('Clear audit logs not implemented - requires API endpoint');
 }
 
 // Predefined action types for consistency
