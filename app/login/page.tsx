@@ -25,15 +25,6 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  // 2FA states
-  const [showVerification, setShowVerification] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [userId, setUserId] = useState('');
-  const [userName, setUserName] = useState('');
-  const [userPhone, setUserPhone] = useState('');
-  const [expiresIn, setExpiresIn] = useState(300);
-  const [attemptsLeft, setAttemptsLeft] = useState(5);
 
   useEffect(() => {
     const roleParam = searchParams.get('role');
@@ -83,18 +74,7 @@ function LoginContent() {
         return;
       }
 
-      // Check if 2FA is required
-      if (result.user.requiresVerification) {
-        setUserId(result.user.userId);
-        setUserName(result.user.name);
-        setUserPhone(result.user.phone);
-        setExpiresIn(result.expiresIn || 300);
-        setShowVerification(true);
-        setIsSubmitting(false);
-        return;
-      }
-
-      // If no 2FA required (shouldn't happen with new flow), complete login
+      // Login successful - complete login
       completeLogin(result.user);
     } catch (error) {
       console.error('Login error:', error);
@@ -103,74 +83,7 @@ function LoginContent() {
     }
   };
 
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsSubmitting(true);
 
-    try {
-      const response = await fetch('/api/auth/verify-sms', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          code: verificationCode,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setError(result.error || 'Invalid verification code');
-        if (result.attemptsLeft !== undefined) {
-          setAttemptsLeft(result.attemptsLeft);
-        }
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Verification successful - complete login
-      completeLogin(result.user);
-    } catch (error) {
-      console.error('Verification error:', error);
-      setError('An error occurred during verification. Please try again.');
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleResendCode = async () => {
-    setError('');
-    setIsSubmitting(true);
-
-    try {
-      const response = await fetch('/api/auth/verify-sms', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok) {
-        setVerificationCode('');
-        setAttemptsLeft(5);
-        setExpiresIn(result.expiresIn || 300);
-        setError('');
-        alert('New verification code sent to your phone');
-      } else {
-        setError(result.error || 'Failed to resend code');
-      }
-    } catch (error) {
-      console.error('Resend error:', error);
-      setError('Failed to resend code');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const completeLogin = async (user: any) => {
     const displayRole = role === 'admin' ? 'BEC Admin' : role === 'police' ? 'Law Enforcement' : 'Presiding Officer';
@@ -205,85 +118,6 @@ function LoginContent() {
 
   // Law Enforcement Portal Design (Red)
   if (role === 'police') {
-    // Show verification screen if needed
-    if (showVerification) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-red-50 to-rose-100 flex items-center justify-center px-4 py-12">
-          <div className="w-full max-w-md">
-            <BrandMark />
-            <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6">
-              <div className="text-center mb-8">
-                <div className="w-24 h-24 bg-red-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg">
-                  <Shield className="w-12 h-12 text-white" strokeWidth={2.5} />
-                </div>
-                <h1 className="text-3xl font-bold text-red-700 mb-2">Verify Your Identity</h1>
-                <p className="text-gray-600">Enter the 6-digit code sent to</p>
-                <p className="font-semibold text-gray-800 mt-1">{userPhone}</p>
-              </div>
-
-              <form onSubmit={handleVerifyCode} className="space-y-5">
-                <div>
-                  <label htmlFor="verificationCode" className="block text-gray-700 font-medium mb-2">
-                    Verification Code
-                  </label>
-                  <input
-                    id="verificationCode"
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    maxLength={6}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-center text-2xl tracking-widest font-mono"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    {attemptsLeft} attempts remaining
-                  </p>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting || verificationCode.length !== 6}
-                  className="w-full bg-red-600 text-white font-semibold py-3.5 px-4 rounded-xl hover:bg-red-700 transition-colors duration-200 shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? 'Verifying...' : 'Verify & Login'}
-                </button>
-
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
-                  </div>
-                )}
-
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={handleResendCode}
-                    disabled={isSubmitting}
-                    className="text-red-600 hover:text-red-700 font-medium text-sm disabled:text-gray-400"
-                  >
-                    Resend Code
-                  </button>
-                  <span className="mx-2 text-gray-400">|</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowVerification(false);
-                      setVerificationCode('');
-                      setError('');
-                    }}
-                    className="text-gray-600 hover:text-gray-700 font-medium text-sm"
-                  >
-                    Back to Login
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-rose-100 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
@@ -394,85 +228,6 @@ function LoginContent() {
 
   // BEC Admin Portal Design (Green - matching Law Enforcement style)
   if (role === 'admin') {
-    // Show verification screen if needed
-    if (showVerification) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center px-4 py-12">
-          <div className="w-full max-w-md">
-            <BrandMark />
-            <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6">
-              <div className="text-center mb-8">
-                <div className="w-24 h-24 bg-emerald-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg">
-                  <Shield className="w-12 h-12 text-white" strokeWidth={2.5} />
-                </div>
-                <h1 className="text-3xl font-bold text-emerald-700 mb-2">Verify Your Identity</h1>
-                <p className="text-gray-600">Enter the 6-digit code sent to</p>
-                <p className="font-semibold text-gray-800 mt-1">{userPhone}</p>
-              </div>
-
-              <form onSubmit={handleVerifyCode} className="space-y-5">
-                <div>
-                  <label htmlFor="verificationCode" className="block text-gray-700 font-medium mb-2">
-                    Verification Code
-                  </label>
-                  <input
-                    id="verificationCode"
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    maxLength={6}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-center text-2xl tracking-widest font-mono"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    {attemptsLeft} attempts remaining
-                  </p>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting || verificationCode.length !== 6}
-                  className="w-full bg-emerald-600 text-white font-semibold py-3.5 px-4 rounded-xl hover:bg-emerald-700 transition-colors duration-200 shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? 'Verifying...' : 'Verify & Login'}
-                </button>
-
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
-                  </div>
-                )}
-
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={handleResendCode}
-                    disabled={isSubmitting}
-                    className="text-emerald-600 hover:text-emerald-700 font-medium text-sm disabled:text-gray-400"
-                  >
-                    Resend Code
-                  </button>
-                  <span className="mx-2 text-gray-400">|</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowVerification(false);
-                      setVerificationCode('');
-                      setError('');
-                    }}
-                    className="text-gray-600 hover:text-gray-700 font-medium text-sm"
-                  >
-                    Back to Login
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-green-100 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
@@ -573,85 +328,6 @@ function LoginContent() {
 
   // Presiding Officer Portal Design (Blue - matching Law Enforcement style)
   if (role === 'officer') {
-    // Show verification screen if needed
-    if (showVerification) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-100 flex items-center justify-center px-4 py-12">
-          <div className="w-full max-w-md">
-            <BrandMark />
-            <div className="bg-white rounded-3xl shadow-2xl p-8 mb-6">
-              <div className="text-center mb-8">
-                <div className="w-24 h-24 bg-blue-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg">
-                  <Shield className="w-12 h-12 text-white" strokeWidth={2.5} />
-                </div>
-                <h1 className="text-3xl font-bold text-blue-700 mb-2">Verify Your Identity</h1>
-                <p className="text-gray-600">Enter the 6-digit code sent to</p>
-                <p className="font-semibold text-gray-800 mt-1">{userPhone}</p>
-              </div>
-
-              <form onSubmit={handleVerifyCode} className="space-y-5">
-                <div>
-                  <label htmlFor="verificationCode" className="block text-gray-700 font-medium mb-2">
-                    Verification Code
-                  </label>
-                  <input
-                    id="verificationCode"
-                    type="text"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="000000"
-                    maxLength={6}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl tracking-widest font-mono"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-2 text-center">
-                    {attemptsLeft} attempts remaining
-                  </p>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isSubmitting || verificationCode.length !== 6}
-                  className="w-full bg-blue-600 text-white font-semibold py-3.5 px-4 rounded-xl hover:bg-blue-700 transition-colors duration-200 shadow-md disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? 'Verifying...' : 'Verify & Login'}
-                </button>
-
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-sm text-red-600 text-center">{error}</p>
-                  </div>
-                )}
-
-                <div className="text-center">
-                  <button
-                    type="button"
-                    onClick={handleResendCode}
-                    disabled={isSubmitting}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm disabled:text-gray-400"
-                  >
-                    Resend Code
-                  </button>
-                  <span className="mx-2 text-gray-400">|</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowVerification(false);
-                      setVerificationCode('');
-                      setError('');
-                    }}
-                    className="text-gray-600 hover:text-gray-700 font-medium text-sm"
-                  >
-                    Back to Login
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-100 flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">
