@@ -70,6 +70,7 @@ export default function AdminDashboard() {
 
   // State for reported incidents from officers
   const [officerIncidents, setOfficerIncidents] = useState<any[]>([]);
+  const [pollingCenters, setPollingCenters] = useState<any[]>([]);
 
   // State for correction requests
   const [correctionRequest, setCorrectionRequest] = useState(false);
@@ -80,18 +81,43 @@ export default function AdminDashboard() {
     requestedAt?: string;
   } | null>(null);
 
-  // Load incidents from localStorage
+  // Load incidents from database
   useEffect(() => {
-    const loadIncidents = () => {
-      const stored = localStorage.getItem('reportedIncidents');
-      if (stored) {
-        setOfficerIncidents(JSON.parse(stored));
+    const loadIncidents = async () => {
+      try {
+        const response = await fetch('/api/incidents');
+        if (response.ok) {
+          const data = await response.json();
+          const mappedIncidents = (data.incidents || []).map((inc: any) => ({
+            ...inc,
+            id: inc._id,
+          }));
+          setOfficerIncidents(mappedIncidents);
+        }
+      } catch (error) {
+        console.error('Error loading incidents:', error);
       }
     };
     loadIncidents();
-    // Check for new incidents every 3 seconds
-    const interval = setInterval(loadIncidents, 3000);
+    // Check for new incidents every 5 seconds
+    const interval = setInterval(loadIncidents, 5000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Load polling centers from database
+  useEffect(() => {
+    const loadPollingCenters = async () => {
+      try {
+        const response = await fetch('/api/polling-centers');
+        if (response.ok) {
+          const data = await response.json();
+          setPollingCenters(data.pollingCenters || []);
+        }
+      } catch (error) {
+        console.error('Error loading polling centers:', error);
+      }
+    };
+    loadPollingCenters();
   }, []);
 
   // Check for correction requests
@@ -235,6 +261,20 @@ export default function AdminDashboard() {
   // Count only active (non-acknowledged) incidents
   const activeIncidentsCount = officerIncidents.filter(inc => inc.status !== 'acknowledged').length;
 
+  // Calculate red zones (high/critical severity incidents)
+  const redZoneCount = useMemo(() => {
+    const highSeverityIncidents = officerIncidents.filter(inc => 
+      (inc.severity?.toUpperCase() === 'HIGH' || inc.severity?.toUpperCase() === 'CRITICAL') &&
+      inc.status !== 'Resolved'
+    );
+    // Get unique locations
+    const uniqueLocations = new Set(highSeverityIncidents.map(inc => inc.location || inc.division));
+    return uniqueLocations.size;
+  }, [officerIncidents]);
+
+  // Get active polling centers count
+  const activePollingCentersCount = pollingCenters.length;
+
   // Calculate max vote for chart scaling
   const maxVotes = Math.max(1, ...partyVotes.map(p => p.votes));
   const chartHeight = 250;
@@ -360,15 +400,15 @@ export default function AdminDashboard() {
             </div>
 
             {/* Red Zone Areas */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className={`rounded-lg border p-6 ${redZoneCount > 0 ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200'}`}>
               <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-lg bg-red-100 flex items-center justify-center">
-                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${redZoneCount > 0 ? 'bg-red-100' : 'bg-gray-100'}`}>
+                  <AlertTriangle className={`w-6 h-6 ${redZoneCount > 0 ? 'text-red-600' : 'text-gray-400'}`} />
                 </div>
-                <span className="text-3xl font-bold text-red-600">3</span>
+                <span className={`text-3xl font-bold ${redZoneCount > 0 ? 'text-red-600' : 'text-gray-400'}`}>{redZoneCount}</span>
               </div>
               <h3 className="text-sm font-medium text-gray-700">Red Zone Areas</h3>
-              <p className="text-xs text-gray-500">High/Critical severity</p>
+              <p className="text-xs text-gray-500">{redZoneCount > 0 ? 'High/Critical severity' : 'No red zones'}</p>
             </div>
 
             {/* Polling Centers */}
@@ -377,10 +417,10 @@ export default function AdminDashboard() {
                 <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
                   <MapPin className="w-6 h-6 text-green-600" />
                 </div>
-                <span className="text-3xl font-bold text-green-600">7</span>
+                <span className="text-3xl font-bold text-green-600">{activePollingCentersCount}</span>
               </div>
               <h3 className="text-sm font-medium text-gray-700">Polling Centers</h3>
-              <p className="text-xs text-gray-500">Currently active</p>
+              <p className="text-xs text-gray-500">{activePollingCentersCount > 0 ? 'Registered in system' : 'No centers yet'}</p>
             </div>
 
             {/* Votes Cast */}

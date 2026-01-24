@@ -10,17 +10,26 @@ export default function NotificationBell() {
   const [incidents, setIncidents] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
 
-  // Load real incidents from localStorage
+  // Load real incidents from database
   useEffect(() => {
-    const loadIncidents = () => {
-      const stored = localStorage.getItem('reportedIncidents');
-      if (stored) {
-        setIncidents(JSON.parse(stored));
+    const loadIncidents = async () => {
+      try {
+        const response = await fetch('/api/incidents');
+        if (response.ok) {
+          const data = await response.json();
+          const mappedIncidents = (data.incidents || []).map((inc: any) => ({
+            ...inc,
+            id: inc._id,
+          }));
+          setIncidents(mappedIncidents);
+        }
+      } catch (error) {
+        console.error('Error loading incidents:', error);
       }
     };
     loadIncidents();
-    // Check for new incidents every 3 seconds
-    const interval = setInterval(loadIncidents, 3000);
+    // Check for new incidents every 5 seconds
+    const interval = setInterval(loadIncidents, 5000);
     return () => clearInterval(interval);
   }, []);
 

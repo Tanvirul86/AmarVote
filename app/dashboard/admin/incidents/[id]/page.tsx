@@ -22,24 +22,34 @@ export default function IncidentDetailsPage() {
   const [incident, setIncident] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load incident from localStorage
+  // Load incident from database
   useEffect(() => {
-    const stored = localStorage.getItem('reportedIncidents');
-    if (stored) {
-      const incidents = JSON.parse(stored);
-      const found = incidents.find((inc: any) => inc.id === incidentId);
-      if (found) {
-        setIncident({
-          ...found,
-          severity: found.severity?.toUpperCase() || 'MEDIUM',
-          coordinates: found.gpsLocation || found.coordinates || { lat: 23.8103, lng: 90.4125 },
-          title: found.title || found.type || 'Incident',
-          reportedTime: new Date(found.timestamp).toLocaleString(),
-        });
-        setStatus(found.status || 'pending');
+    const loadIncident = async () => {
+      try {
+        const response = await fetch(`/api/incidents?incidentId=${incidentId}`);
+        if (response.ok) {
+          const data = await response.json();
+          const found = data.incident;
+          if (found) {
+            setIncident({
+              ...found,
+              id: found._id,
+              severity: found.severity?.toUpperCase() || 'MEDIUM',
+              coordinates: found.gpsLocation || found.coordinates || { lat: 23.8103, lng: 90.4125 },
+              title: found.title || found.type || 'Incident',
+              reportedTime: found.reportedAt ? new Date(found.reportedAt).toLocaleString() : 'Unknown',
+            });
+            setStatus(found.status || 'pending');
+            setLawEnforcementNotes(found.lawEnforcementNotes || '');
+          }
+        }
+      } catch (error) {
+        console.error('Error loading incident:', error);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    loadIncident();
   }, [incidentId]);
 
   // Initialize Leaflet map
@@ -129,28 +139,50 @@ export default function IncidentDetailsPage() {
     };
   }, [incident]);
 
-  const handleStatusUpdate = (newStatus: string) => {
-    setStatus(newStatus);
-    // In real app, send API request to update status
-    console.log(`Updated status to: ${newStatus}`);
+  const handleStatusUpdate = async (newStatus: string) => {
+    try {
+      const response = await fetch('/api/incidents', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          incidentId: incidentId,
+          status: newStatus,
+        }),
+      });
+
+      if (response.ok) {
+        setStatus(newStatus);
+        
+        // Log the status update
+        const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+        await fetch('/api/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user: userInfo.name || 'Admin',
+            action: 'INCIDENT_STATUS_UPDATED',
+            details: `Updated incident ${incidentId} status to ${newStatus}`,
+            ip: 'Client',
+          }),
+        });
+      } else {
+        console.error('Failed to update incident status');
+      }
+    } catch (error) {
+      console.error('Error updating status:', error);
+    }
   };
 
   const [headerBg, setHeaderBg] = useState('bg-green-600');
   const [lawEnforcementNotes, setLawEnforcementNotes] = useState<string>('');
   const [fetchedIncidentData, setFetchedIncidentData] = useState<any>(null);
 
-  // Load law enforcement notes from localStorage
+  // Notes are now loaded with incident data above
   useEffect(() => {
-    const stored = localStorage.getItem('reportedIncidents');
-    if (stored) {
-      const incidents = JSON.parse(stored);
-      const found = incidents.find((inc: any) => inc.id === incidentId);
-      if (found) {
-        setFetchedIncidentData(found);
-        setLawEnforcementNotes(found.lawEnforcementNotes || '');
-      }
+    if (incident) {
+      setFetchedIncidentData(incident);
     }
-  }, [incidentId]);
+  }, [incident]);
 
   useEffect(() => {
     try {
