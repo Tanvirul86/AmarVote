@@ -12,7 +12,7 @@ export default function PoliceIncidentsPage() {
   const [incidents, setIncidents] = useState<any[]>([]);
   const [selectedIncident, setSelectedIncident] = useState<any | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<'ALL' | 'active' | 'acknowledged'>('ALL');
+  const [filterStatus, setFilterStatus] = useState<'ALL' | 'Reported' | 'Under Investigation' | 'Resolved'>('ALL');
   const [isLoading, setIsLoading] = useState(true);
 
   // Load incidents from database
@@ -44,9 +44,7 @@ export default function PoliceIncidentsPage() {
 
   const filteredIncidents = filterStatus === 'ALL' 
     ? incidents 
-    : filterStatus === 'active'
-    ? incidents.filter(inc => inc.status === 'Reported' || inc.status === 'Under Investigation')
-    : incidents.filter(inc => inc.status === 'Resolved' || inc.status === 'Dismissed');
+    : incidents.filter(inc => inc.status === filterStatus);
 
   const getSeverityColor = (severity: string) => {
     const sev = severity?.toUpperCase();
@@ -72,10 +70,10 @@ export default function PoliceIncidentsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'text-red-600';
-      case 'responded': return 'text-orange-600';
-      case 'resolved': return 'text-blue-600';
-      case 'acknowledged': return 'text-green-600';
+      case 'Reported': return 'text-red-600';
+      case 'Under Investigation': return 'text-orange-600';
+      case 'Resolved': return 'text-green-600';
+      case 'Dismissed': return 'text-gray-600';
       default: return 'text-gray-600';
     }
   };
@@ -163,7 +161,7 @@ export default function PoliceIncidentsPage() {
       <div className="p-6 max-w-6xl mx-auto">
         {/* Filter Buttons */}
         <div className="mb-6 flex flex-wrap gap-2">
-          {['ALL', 'active', 'resolved'].map((status) => (
+          {(['ALL', 'Reported', 'Under Investigation', 'Resolved'] as const).map((status) => (
             <button
               key={status}
               onClick={() => setFilterStatus(status as any)}
@@ -173,13 +171,11 @@ export default function PoliceIncidentsPage() {
                   : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50'
               }`}
             >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
+              {status}
               <span className="ml-2 text-sm opacity-75">
                 ({status === 'ALL' 
                   ? incidents.length 
-                  : status === 'active' 
-                  ? incidents.filter(inc => inc.status === 'Reported' || inc.status === 'Under Investigation').length
-                  : incidents.filter(inc => inc.status === 'Resolved' || inc.status === 'Dismissed').length})
+                  : incidents.filter(inc => inc.status === status).length})
               </span>
             </button>
           ))}

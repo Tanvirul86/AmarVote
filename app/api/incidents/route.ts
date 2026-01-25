@@ -63,6 +63,8 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { incidentId, ...updates } = body;
 
+    console.log('PATCH /api/incidents - Received:', { incidentId, updates });
+
     if (!incidentId) {
       return NextResponse.json({ error: 'Incident ID is required' }, { status: 400 });
     }
@@ -80,6 +82,14 @@ export async function PATCH(request: NextRequest) {
     if (!incident) {
       return NextResponse.json({ error: 'Incident not found' }, { status: 404 });
     }
+
+    console.log('PATCH /api/incidents - Updated incident:', {
+      id: incident._id,
+      status: incident.status,
+      acknowledgedBy: incident.acknowledgedBy,
+      acknowledgedAt: incident.acknowledgedAt,
+      acknowledgementNotes: incident.acknowledgementNotes
+    });
 
     return NextResponse.json({ incident }, { status: 200 });
   } catch (error: any) {

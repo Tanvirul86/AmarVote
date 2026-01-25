@@ -31,6 +31,7 @@ export default function AdminDashboard() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [voteSubmissionEnabled, setVoteSubmissionEnabled] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Load vote submission status from localStorage on mount
   useEffect(() => {
@@ -180,9 +181,12 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = () => {
-    if (confirm('Are you sure you want to logout?')) {
-      router.push('/');
-    }
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutModal(false);
+    router.push('/');
   };
 
   const PARTIES = [
@@ -198,10 +202,16 @@ export default function AdminDashboard() {
   const [voteSubmissions, setVoteSubmissions] = useState<any[]>([]);
 
   useEffect(() => {
-    const loadVotes = () => {
+    const loadVotes = async () => {
       try {
-        const raw = localStorage.getItem('votesSubmissions');
-        setVoteSubmissions(raw ? JSON.parse(raw) : []);
+        const response = await fetch('/api/votes');
+        if (response.ok) {
+          const data = await response.json();
+          setVoteSubmissions(data.votes || []);
+        } else {
+          console.error('Failed to fetch votes');
+          setVoteSubmissions([]);
+        }
       } catch (e) {
         console.error('Error loading vote submissions', e);
         setVoteSubmissions([]);
@@ -210,14 +220,11 @@ export default function AdminDashboard() {
 
     loadVotes();
 
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'votesSubmissions') loadVotes();
-    };
-    window.addEventListener('storage', handleStorage);
-    window.addEventListener('focus', loadVotes);
+    // Reload votes periodically for real-time updates
+    const interval = setInterval(loadVotes, 10000); // Every 10 seconds
+
     return () => {
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('focus', loadVotes);
+      clearInterval(interval);
     };
   }, []);
 
@@ -254,12 +261,12 @@ export default function AdminDashboard() {
     title: inc.description,
     location: inc.location,
     status: inc.status || 'pending',
-    isNew: inc.status !== 'acknowledged',
+    isNew: inc.status === 'Reported', // Only Reported incidents are new/unacknowledged
     timestamp: inc.timestamp,
   }));
 
-  // Count only active (non-acknowledged) incidents
-  const activeIncidentsCount = officerIncidents.filter(inc => inc.status !== 'acknowledged').length;
+  // Count only active (Reported) incidents that need attention
+  const activeIncidentsCount = officerIncidents.filter(inc => inc.status === 'Reported').length;
 
   // Calculate red zones (high/critical severity incidents)
   const redZoneCount = useMemo(() => {
@@ -503,13 +510,23 @@ export default function AdminDashboard() {
                         </span>
                         {incident.isNew && (
                           <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded">
-                            {incident.reportedBy || 'Officer'}
+                            NEW
+                          </span>
+                        )}
+                        {incident.status === 'Under Investigation' && incident.acknowledgedBy && (
+                          <span className="px-2 py-0.5 bg-blue-500 text-white text-[10px] font-bold rounded" title={`Acknowledged by ${incident.acknowledgedBy.name}`}>
+                            ✓ INVESTIGATING
                           </span>
                         )}
                       </div>
                     </div>
                     <p className="text-sm font-medium text-gray-900 mb-1">{incident.title}</p>
                     <p className="text-xs text-gray-500">{incident.location}</p>
+                    {incident.acknowledgedBy && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Acknowledged by: {incident.acknowledgedBy.name}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -537,6 +554,30 @@ export default function AdminDashboard() {
           </div>
         </main>
       </div>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Confirm Logout</h3>
+            <p className="text-gray-600 mb-6">Are you sure you want to logout?</p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

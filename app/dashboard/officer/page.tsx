@@ -60,33 +60,37 @@ export default function OfficerDashboard() {
         const currentUserId = localStorage.getItem('currentUserId');
         
         if (currentUserId) {
-          // Load from user database to get latest profile
-          const { getUserById } = await import('@/data/mockData');
-          const userFromDb = getUserById(currentUserId);
+          // Load from database API
+          const response = await fetch(`/api/users?userId=${currentUserId}`);
           
-          if (userFromDb) {
-            setUserName(userFromDb.name);
+          if (response.ok) {
+            const data = await response.json();
+            const userFromDb = data.user;
             
-            // Load polling center information
-            if (userFromDb.pollingCenterId) {
-              setPollingCenterId(userFromDb.pollingCenterId);
+            if (userFromDb) {
+              setUserName(userFromDb.name);
+              
+              // Load polling center information
+              if (userFromDb.pollingCenterId) {
+                setPollingCenterId(userFromDb.pollingCenterId);
+              }
+              if (userFromDb.pollingCenterName) {
+                setPollingCenterName(userFromDb.pollingCenterName);
+              }
+              
+              // Update localStorage with latest data
+              const userData = {
+                name: userFromDb.name,
+                role: 'Presiding Officer',
+                avatar: userFromDb.avatar || '',
+                userId: userFromDb._id,
+                phone: userFromDb.phone || '',
+                email: userFromDb.email,
+                pollingCenterId: userFromDb.pollingCenterId || '',
+                pollingCenterName: userFromDb.pollingCenterName || ''
+              };
+              localStorage.setItem('user', JSON.stringify(userData));
             }
-            if (userFromDb.pollingCenterName) {
-              setPollingCenterName(userFromDb.pollingCenterName);
-            }
-            
-            // Update localStorage with latest data
-            const userData = {
-              name: userFromDb.name,
-              role: 'Presiding Officer',
-              avatar: userFromDb.avatar || '',
-              userId: userFromDb.id,
-              phone: userFromDb.phone || '',
-              email: userFromDb.email,
-              pollingCenterId: userFromDb.pollingCenterId || '',
-              pollingCenterName: userFromDb.pollingCenterName || ''
-            };
-            localStorage.setItem('user', JSON.stringify(userData));
           }
         } else {
           // Fallback to localStorage only
@@ -252,7 +256,7 @@ export default function OfficerDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showVoteSubmittedView, setShowVoteSubmittedView] = useState(false);
-  const [submittedVoteData, setSubmittedVoteData] = useState<{ pollingCenter: string; totalVotes: number; submittedBy: string } | null>(null);
+  const [submittedVoteData, setSubmittedVoteData] = useState<{ pollingCenter: string; totalVotes: number; submittedBy: { userId: string; name: string; email?: string } } | null>(null);
 
   // Additional state for new incident form fields
   const [incidentTitle, setIncidentTitle] = useState('');
@@ -358,7 +362,7 @@ export default function OfficerDashboard() {
     }
   };
 
-  const handleIncidentSubmit = (e: React.FormEvent) => {
+  const handleIncidentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!incidentTitle.trim()) {
       alert('Please provide an incident title.');
@@ -371,10 +375,54 @@ export default function OfficerDashboard() {
 
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      const currentUserId = localStorage.getItem('currentUserId');
+      const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+      
+      // Map severity to match schema enum (capitalize first letter)
+      const severityMap: Record<string, string> = {
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        critical: 'Critical'
+      };
+      
+      const incidentData = {
+        title: incidentTitle || `${incidentType} Incident`,
+        type: incidentType,
+        severity: severityMap[incidentSeverity] || 'Medium',
+        description: incidentDescription,
+        location: incidentLocation || pollingCenterId,
+        pollingCenterId: pollingCenterId,
+        pollingCenterName: pollingCenterName || userInfo.pollingCenterName || 'Unknown Center',
+        reportedBy: {
+          userId: currentUserId || userInfo.userId || 'unknown',
+          name: userName,
+          role: 'officer'
+        },
+        gpsLocation: gpsLocation || { lat: 23.8103, lng: 90.4125 },
+        attachments: attachedFiles.map(file => file.name),
+        status: 'Reported'
+      };
+
+      // Submit to backend API
+      const response = await fetch('/api/incidents', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(incidentData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit incident report');
+      }
+
+      const result = await response.json();
+
       const newIncident: Incident = {
-        id: `INC-${Date.now()}`,
+        id: result.incident._id || `INC-${Date.now()}`,
         type: incidentType,
         severity: incidentSeverity,
         description: incidentDescription,
@@ -388,9 +436,8 @@ export default function OfficerDashboard() {
       const updatedIncidents = [newIncident, ...submittedIncidents];
       setSubmittedIncidents(updatedIncidents);
       
-      // Save to localStorage so admin and police dashboards can see it
+      // Save to localStorage for quick local display
       const existingIncidents = JSON.parse(localStorage.getItem('reportedIncidents') || '[]');
-      const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
       const incidentToSave = {
         ...newIncident,
         gpsLocation: gpsLocation || { lat: 23.8103, lng: 90.4125 },
@@ -422,7 +469,11 @@ export default function OfficerDashboard() {
 
       // Show success modal
       setShowSuccessModal(true);
-    }, 1000);
+    } catch (error) {
+      console.error('Error submitting incident:', error);
+      alert(error instanceof Error ? error.message : 'Failed to submit incident report. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   const getSeverityColor = (severity: SeverityLevel) => {
@@ -452,48 +503,102 @@ export default function OfficerDashboard() {
 
   const totalVotes = Object.values(voteCounts).reduce((sum, count) => sum + count, 0);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (confirm('Are you sure? Vote counts can only be submitted ONCE and cannot be modified.')) {
-      const voteData = {
-        pollingCenter: pollingCenterId,
-        pollingCenterName: pollingCenterName || 'Unknown Center',
-        totalVotes,
-        totalVoters,
-        submittedBy: `${userName}${pollingCenterName ? ` - ${pollingCenterName}` : ''}`,
-        submittedAt: new Date().toISOString(),
-        partyVotes: voteCounts,
-      };
-
-      // Persist submission list (replace any previous submission for this center)
+      setIsSubmitting(true);
+      
       try {
-        const raw = localStorage.getItem('votesSubmissions');
-        const existing: any[] = raw ? JSON.parse(raw) : [];
-        const filtered = existing.filter((entry) => entry.pollingCenter !== pollingCenterId);
-        filtered.push(voteData);
-        localStorage.setItem('votesSubmissions', JSON.stringify(filtered));
-      } catch (err) {
-        console.error('Error saving vote submissions', err);
+        const currentUserId = localStorage.getItem('currentUserId');
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        // Check if this is a correction resubmission
+        const resubmitWindowKey = `voteResubmissionWindow_${pollingCenterId || ''}`;
+        const isInCorrectionWindow = localStorage.getItem(resubmitWindowKey) === 'true';
+        
+        const voteData = {
+          pollingCenter: pollingCenterId,
+          pollingCenterName: pollingCenterName || 'Unknown Center',
+          location: pollingCenterName || 'Unknown Center',
+          totalVotes,
+          totalVoters,
+          submittedBy: {
+            userId: currentUserId || userData.userId || 'unknown',
+            name: userName,
+            email: userData.email
+          },
+          partyVotes: voteCounts,
+          isCorrection: isInCorrectionWindow,
+        };
+
+        // Submit to backend API
+        const response = await fetch('/api/votes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(voteData),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to submit votes');
+        }
+
+        const result = await response.json();
+
+        // Persist submission list locally for UI display
+        try {
+          const raw = localStorage.getItem('votesSubmissions');
+          const existing: any[] = raw ? JSON.parse(raw) : [];
+          const filtered = existing.filter((entry) => entry.pollingCenter !== pollingCenterId);
+          filtered.push(voteData);
+          localStorage.setItem('votesSubmissions', JSON.stringify(filtered));
+        } catch (err) {
+          console.error('Error saving vote submissions locally', err);
+        }
+
+        // Keep legacy single-submission key for backward compatibility
+        localStorage.setItem('votesSubmitted', JSON.stringify(voteData));
+
+        // Close any resubmission window after the corrected submission
+        localStorage.removeItem(resubmitWindowKey);
+        setIsInResubmissionWindow(false);
+        hasProcessedResetRef.current = false;
+        
+        // Mark correction as used if this was a correction
+        if (isInCorrectionWindow) {
+          const correctionUsedKey = `correctionUsed_${pollingCenterId || ''}`;
+          localStorage.setItem(correctionUsedKey, 'true');
+          setCorrectionUsed(true);
+        }
+
+        // Log vote submission
+        addAuditLog(
+          AuditActions.VOTE_SUBMITTED,
+          `Submitted votes for ${pollingCenterName || 'Unknown Center'} (${pollingCenterId}) - Total: ${totalVotes} votes`,
+          userName
+        );
+
+        setSubmittedVoteData(voteData);
+        setShowVoteSubmittedView(true);
+        
+        // Reset form data
+        setVoteCounts({
+          PA: 0,
+          PB: 0,
+          PC: 0,
+          PD: 0,
+          PE: 0,
+          PF: 0,
+          IND: 0,
+        });
+        setTotalVoters(0);
+      } catch (error) {
+        console.error('Error submitting votes:', error);
+        alert(error instanceof Error ? error.message : 'Failed to submit votes. Please try again.');
+        setIsSubmitting(false);
       }
-
-      // Keep legacy single-submission key for backward compatibility (not used for blocking)
-      localStorage.setItem('votesSubmitted', JSON.stringify(voteData));
-
-      // Close any resubmission window after the corrected submission
-      const resubmitWindowKey = `voteResubmissionWindow_${pollingCenterId || ''}`;
-      localStorage.removeItem(resubmitWindowKey);
-      setIsInResubmissionWindow(false);
-      hasProcessedResetRef.current = false; // Reset the ref for potential future corrections
-
-      // Log vote submission
-      addAuditLog(
-        AuditActions.VOTE_SUBMITTED,
-        `Submitted votes for ${pollingCenterName || 'Unknown Center'} (${pollingCenterId}) - Total: ${totalVotes} votes`,
-        userName
-      );
-
-      setSubmittedVoteData(voteData);
-      setShowVoteSubmittedView(true);
     }
   };
 
@@ -551,7 +656,7 @@ export default function OfficerDashboard() {
                   <div className="space-y-1">
                     <p><span className="font-semibold text-gray-700">Polling Center:</span> <span className="text-gray-600">{submittedVoteData.pollingCenter}</span></p>
                     <p><span className="font-semibold text-gray-700">Total Votes:</span> <span className="text-gray-600">{submittedVoteData.totalVotes}</span></p>
-                    <p><span className="font-semibold text-gray-700">Submitted By:</span> <span className="text-gray-600">{submittedVoteData.submittedBy}</span></p>
+                    <p><span className="font-semibold text-gray-700">Submitted By:</span> <span className="text-gray-600">{submittedVoteData.submittedBy.name}</span></p>
                   </div>
                 </div>
 

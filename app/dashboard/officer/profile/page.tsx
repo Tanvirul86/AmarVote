@@ -19,30 +19,34 @@ export default function OfficerProfileEditPage() {
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  // Load existing user data from localStorage
+  // Load existing user data from localStorage and database
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
         const currentUserId = localStorage.getItem('currentUserId');
         
         if (currentUserId) {
-          // Load from user database
-          const { getUserById } = await import('@/data/mockData');
-          const userFromDb = getUserById(currentUserId);
+          // Load from database API
+          const response = await fetch(`/api/users?userId=${currentUserId}`);
           
-          if (userFromDb) {
-            setProfileData(prev => ({
-              ...prev,
-              fullName: userFromDb.name,
-              email: userFromDb.email,
-              phone: userFromDb.phone || prev.phone,
-              badge: userFromDb.id,
-              station: userFromDb.location,
-              district: userFromDb.location,
-            }));
+          if (response.ok) {
+            const data = await response.json();
+            const userFromDb = data.user;
             
-            if (userFromDb.avatar) {
-              setPreviewUrl(userFromDb.avatar);
+            if (userFromDb) {
+              setProfileData(prev => ({
+                ...prev,
+                fullName: userFromDb.name,
+                email: userFromDb.email,
+                phone: userFromDb.phone || prev.phone,
+                badge: userFromDb.username || userFromDb._id,
+                station: userFromDb.pollingCenterName || userFromDb.location || prev.station,
+                district: userFromDb.location || prev.district,
+              }));
+              
+              if (userFromDb.avatar) {
+                setPreviewUrl(userFromDb.avatar);
+              }
             }
           }
         }
@@ -115,12 +119,23 @@ export default function OfficerProfileEditPage() {
       const currentUserId = localStorage.getItem('currentUserId');
       
       if (currentUserId) {
-        // Update in the user database
-        const { updateUserProfile } = await import('@/data/mockData');
-        updateUserProfile(currentUserId, {
-          phone: profileData.phone,
-          avatar: avatarDataUrl || ''
+        // Update via database API
+        const response = await fetch('/api/users', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: currentUserId,
+            phone: profileData.phone,
+            avatar: avatarDataUrl || ''
+          }),
         });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to update profile');
+        }
       }
       
       // Update localStorage display data
@@ -136,7 +151,7 @@ export default function OfficerProfileEditPage() {
       router.push('/dashboard/officer');
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Failed to save profile. Please try again.');
+      alert(error instanceof Error ? error.message : 'Failed to save profile. Please try again.');
     }
   };
 

@@ -23,6 +23,13 @@ export interface IIncident extends Document {
   reportedAt: Date;
   assignedTo?: string;
   assignedAt?: Date;
+  acknowledgedBy?: {
+    userId: string;
+    name: string;
+    role: string;
+  };
+  acknowledgedAt?: Date;
+  acknowledgementNotes?: string;
   resolvedBy?: string;
   resolvedAt?: Date;
   resolutionNotes?: string;
@@ -94,6 +101,13 @@ const IncidentSchema = new Schema<IIncident>(
     },
     assignedTo: String,
     assignedAt: Date,
+    acknowledgedBy: {
+      userId: String,
+      name: String,
+      role: String,
+    },
+    acknowledgedAt: Date,
+    acknowledgementNotes: String,
     resolvedBy: String,
     resolvedAt: Date,
     resolutionNotes: String,

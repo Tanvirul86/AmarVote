@@ -71,23 +71,41 @@ export default function PoliceIncidentDetailsPage() {
     }
 
     try {
+      // Get current user info
+      const userData = JSON.parse(localStorage.getItem('user') || '{}');
+      const currentUserId = localStorage.getItem('currentUserId');
+      
+      const updatePayload = {
+        incidentId: incidentId,
+        status: 'Under Investigation',
+        acknowledgedBy: {
+          userId: currentUserId || 'unknown',
+          name: userData.name || 'Unknown Officer',
+          role: userData.role || 'Law Enforcement',
+        },
+        acknowledgedAt: new Date().toISOString(),
+        acknowledgementNotes: handlingNotes,
+      };
+      
+      console.log('Sending acknowledgement payload:', updatePayload);
+      
       // Update incident status in database
       const response = await fetch(`/api/incidents`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          incidentId: incidentId,
-          status: 'Under Investigation',
-          resolutionNotes: handlingNotes,
-        }),
+        body: JSON.stringify(updatePayload),
       });
 
       if (response.ok) {
         const updatedData = await response.json();
+        console.log('Acknowledgement response:', updatedData);
+        
         setIncident({
           ...incident,
           status: 'Under Investigation',
-          resolutionNotes: handlingNotes,
+          acknowledgedBy: updatePayload.acknowledgedBy,
+          acknowledgedAt: updatePayload.acknowledgedAt,
+          acknowledgementNotes: handlingNotes,
         });
         setFetchedIncidentData(updatedData.incident);
         setHasAcknowledged(true);
@@ -107,7 +125,9 @@ export default function PoliceIncidentDetailsPage() {
 
         alert('Incident acknowledged successfully!');
       } else {
-        alert('Failed to acknowledge incident');
+        const errorData = await response.json();
+        console.error('Failed to acknowledge incident:', errorData);
+        alert('Failed to acknowledge incident: ' + (errorData.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error acknowledging incident:', error);
@@ -281,17 +301,26 @@ export default function PoliceIncidentDetailsPage() {
             </div>
 
             {/* Law Enforcement Response - If Available */}
-            {(fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes) && (
+            {(fetchedIncidentData?.acknowledgementNotes || fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes) && (
               <div className="bg-red-50 rounded-lg border-2 border-red-300 p-6">
                 <h2 className="text-lg font-semibold text-red-900 mb-4">Law Enforcement Response</h2>
                 <div className="bg-white rounded p-4 mb-3 border border-red-200">
-                  <p className="text-gray-900 whitespace-pre-wrap">{fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes}</p>
-                </div>
-                {(fetchedIncidentData?.assignedAt || incident?.assignedAt) && (
-                  <p className="text-xs text-red-700">
-                    <strong>Acknowledged:</strong> {new Date(fetchedIncidentData?.assignedAt || incident?.assignedAt).toLocaleString()}<br/>
-                    <strong>By:</strong> {fetchedIncidentData?.assignedTo || incident?.assignedTo || 'Law Enforcement Officer'}
+                  <p className="text-gray-900 whitespace-pre-wrap">
+                    {fetchedIncidentData?.acknowledgementNotes || fetchedIncidentData?.resolutionNotes || incident?.resolutionNotes}
                   </p>
+                </div>
+                {fetchedIncidentData?.acknowledgedAt && fetchedIncidentData?.acknowledgedBy && (
+                  <div className="text-sm text-red-700 space-y-1">
+                    <p>
+                      <strong>Acknowledged By:</strong> {fetchedIncidentData.acknowledgedBy.name} ({fetchedIncidentData.acknowledgedBy.role})
+                    </p>
+                    <p>
+                      <strong>Badge/ID:</strong> {fetchedIncidentData.acknowledgedBy.userId}
+                    </p>
+                    <p>
+                      <strong>Acknowledged At:</strong> {new Date(fetchedIncidentData.acknowledgedAt).toLocaleString()}
+                    </p>
+                  </div>
                 )}
               </div>
             )}

@@ -33,8 +33,8 @@ export default function NotificationBell() {
     return () => clearInterval(interval);
   }, []);
 
-  // Count only non-acknowledged incidents
-  const activeCount = incidents.filter(inc => inc.status !== 'acknowledged').length;
+  // Count only Reported incidents (not yet acknowledged)
+  const activeCount = incidents.filter(inc => inc.status === 'Reported').length;
 
   function handleClickNotification(incidentId: string) {
     setOpen(false);
@@ -81,7 +81,7 @@ export default function NotificationBell() {
                 </div>
               ) : (
                 incidents
-                  .filter(inc => inc.status !== 'acknowledged')
+                  .filter(inc => inc.status === 'Reported')
                   .map((incident) => (
                     <div
                       key={incident.id}

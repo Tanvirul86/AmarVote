@@ -30,6 +30,7 @@ export default function IncidentDetailsPage() {
         if (response.ok) {
           const data = await response.json();
           const found = data.incident;
+          console.log('Loaded incident data:', found); // Debug log
           if (found) {
             setIncident({
               ...found,
@@ -41,6 +42,11 @@ export default function IncidentDetailsPage() {
             });
             setStatus(found.status || 'pending');
             setLawEnforcementNotes(found.lawEnforcementNotes || '');
+            console.log('Acknowledgement data:', {
+              acknowledgedBy: found.acknowledgedBy,
+              acknowledgedAt: found.acknowledgedAt,
+              acknowledgementNotes: found.acknowledgementNotes
+            }); // Debug log
           }
         }
       } catch (error) {
@@ -346,8 +352,8 @@ export default function IncidentDetailsPage() {
                 </div>
 
                 <div>
-                  <p className="text-sm text-gray-600 font-medium mb-1">Description</p>
-                  <p className="text-gray-900">{incident.description}</p>
+                  <p className="text-sm text-gray-600 font-medium mb-1">Description (by Presiding Officer)</p>
+                  <p className="text-gray-900 bg-blue-50 p-3 rounded border border-blue-200">{incident.description}</p>
                 </div>
 
                 <div>
@@ -360,17 +366,59 @@ export default function IncidentDetailsPage() {
             </div>
 
             {/* Law Enforcement Response - If Available */}
-            {lawEnforcementNotes && (
+            {(incident?.acknowledgedBy || incident?.acknowledgementNotes || lawEnforcementNotes) && (
               <div className="bg-red-50 rounded-lg border-2 border-red-300 p-6">
-                <h2 className="text-lg font-semibold text-red-900 mb-4">Law Enforcement Response</h2>
-                <div className="bg-white rounded p-4 mb-3 border border-red-200">
-                  <p className="text-gray-900 whitespace-pre-wrap">{lawEnforcementNotes}</p>
-                </div>
-                {fetchedIncidentData?.acknowledgedAt && (
-                  <p className="text-xs text-red-700">
-                    <strong>Acknowledged:</strong> {new Date(fetchedIncidentData.acknowledgedAt).toLocaleString()}<br/>
-                    <strong>By:</strong> {fetchedIncidentData.acknowledgedBy || 'Law Enforcement Officer'}
-                  </p>
+                <h2 className="text-lg font-semibold text-red-900 mb-4 flex items-center gap-2">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  Law Enforcement Officer Response
+                </h2>
+                
+                {/* Acknowledged By Information */}
+                {incident?.acknowledgedBy && (
+                  <div className="bg-white rounded-lg p-5 mb-4 border-2 border-red-300 shadow-sm">
+                    <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-3">Officer Information</p>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="bg-red-100 p-2 rounded-full">
+                          <User className="w-5 h-5 text-red-700" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Officer Name</p>
+                          <p className="font-semibold text-gray-900 text-lg">{incident.acknowledgedBy.name}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 pl-11">
+                        <div>
+                          <p className="text-sm text-gray-500">Role</p>
+                          <p className="font-medium text-gray-900">{incident.acknowledgedBy.role}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Badge/ID</p>
+                          <p className="font-mono font-medium text-gray-900">{incident.acknowledgedBy.userId}</p>
+                        </div>
+                      </div>
+                      {incident.acknowledgedAt && (
+                        <div className="pl-11 pt-2 border-t border-gray-200">
+                          <p className="text-sm text-gray-500">Acknowledged At</p>
+                          <p className="font-medium text-gray-900">{new Date(incident.acknowledgedAt).toLocaleString()}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Acknowledgement Notes from Law Enforcement */}
+                {(incident?.acknowledgementNotes || lawEnforcementNotes) && (
+                  <div className="bg-white rounded-lg p-5 border-2 border-red-300 shadow-sm">
+                    <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-3">Officer's Assessment & Notes</p>
+                    <div className="bg-red-50 rounded p-4 border border-red-200">
+                      <p className="text-gray-900 whitespace-pre-wrap leading-relaxed">
+                        {incident?.acknowledgementNotes || lawEnforcementNotes}
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
             )}
@@ -414,8 +462,8 @@ export default function IncidentDetailsPage() {
                 <h2 className="text-lg font-semibold text-gray-900">Reported By</h2>
               </div>
               
-              <p className="text-gray-900 font-semibold">{incident.reportedBy || 'Presiding Officer'}</p>
-              <p className="text-sm text-gray-500">{incident.reportedByRole || 'Presiding Officer'}</p>
+              <p className="text-gray-900 font-semibold">{incident.reportedBy?.name || 'Presiding Officer'}</p>
+              <p className="text-sm text-gray-500">{incident.reportedBy?.role || 'Presiding Officer'}</p>
               {incident.pollingCenterId && (
                 <p className="text-xs text-gray-500 mt-2">Polling Center: {incident.pollingCenterId}</p>
               )}

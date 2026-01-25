@@ -455,7 +455,7 @@ export default function IncidentMapPage() {
                 >
                   <div className="flex items-start gap-3">
                     <div
-                      onMouseMove={(e:any) => setUserHover({ x: e.clientX, y: e.clientY, content: `${incident.reportedBy}\n${incident.id}@example.com\nPresiding Officer` })}
+                      onMouseMove={(e:any) => setUserHover({ x: e.clientX, y: e.clientY, content: `${incident.reportedBy?.name || 'Unknown'}\n${incident.reportedBy?.userId || incident.id}@example.com\n${incident.reportedBy?.role || 'Presiding Officer'}` })}
                       onMouseLeave={() => setUserHover(null)}
                       className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                         incident.severity === 'CRITICAL' ? 'bg-red-100' :
